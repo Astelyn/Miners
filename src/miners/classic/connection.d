@@ -47,6 +47,9 @@ private:
 	/// Verification recieved from mc.net
 	string verificationKey;
 
+	// Are still negotiating the extensions.
+	bool negotiating;
+
 	/// Stored data when receiving the level
 	ubyte[] inData;
 
@@ -76,6 +79,7 @@ public:
 		this.username = csi.username;
 		this.verificationKey = csi.verificationKey;
 
+		this.negotiating = true;
 		this.packetLength = size_t.max;
 	}
 
@@ -214,6 +218,7 @@ protected:
 		ubyte type = si.playerType;
 
 		setPlayerType(type);
+		negotiating = false;
 
 		cl.indentification(ver, name, motd, type);
 	}
@@ -434,6 +439,43 @@ protected:
 		cl.playerType(type);
 	}
 
+	/**
+	 * 0x10
+	 */
+	void extInfo(ExtInfo *ei_)
+	{
+		if (!negotiating)
+			throw new Exception("ExtInfo packet not expected");
+
+		string name = removeTrailingSpaces(ei_.name);
+		int num = ntoh(ei_.numExts);
+
+		l.info("Server: \"%s\" num: %s", name, num);
+
+		ExtInfo ei;
+		string clientName = "Charged Miners";
+		ei.packetId = ei.constId;
+		ei.name[0 .. clientName.length] = clientName[];
+		ei.name[clientName.length .. $] = ' ';
+		ei.numExts = 0;
+
+		sendPacket!(ei)(s);
+	}
+
+	/**
+	 * 0x11
+	 */
+	void extEntry(ExtEntry *ee)
+	{
+		if (!negotiating)
+			throw new Exception("ExtEntry packet not expected");
+
+		string name = removeTrailingSpaces(ee.name);
+		int ver = ntoh(ee.ver);
+
+		l.info("Ext: \"%s\" ver: %s", name, ver);
+	}
+
 	void packet(ubyte *pkg)
 	{
 		switch(*pkg) {
@@ -486,6 +528,12 @@ protected:
 			break;
 		case 0x0f:
 			updateType(&packets.updateType);
+			break;
+		case 0x10:
+			extInfo(&packets.extInfo);
+			break;
+		case 0x11:
+			extEntry(&packets.extEntry);
 			break;
 		default: // Error 
 			assert(false);
