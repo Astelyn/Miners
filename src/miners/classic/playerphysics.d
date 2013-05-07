@@ -129,7 +129,7 @@ public:
 		Vector3d vel = getMoveVector(heading);
 
 		// The speed at which we move.
-		double velSpeed = run ? 1.0 : (4.3/100);
+		double velSpeed = run ? 0.6 : (4.3/100);
 
 		if (up)
 			vel.y += velSpeed;
@@ -281,7 +281,7 @@ protected:
 		vel.normalize();
 
 		// The speed at which we move.
-		double velSpeed = run ? 1.0 : (4.3/100);
+		double velSpeed = run ? 0.6 : (4.3/100);
 
 		// Scale the speed vector.
 		vel.scale(velSpeed);

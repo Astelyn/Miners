@@ -113,8 +113,8 @@ public:
 
 		parseArgs(args);
 
-		if (!running)
-			return;
+		//if (!running)
+			//return;
 
 		/* This will initalize Core and other important things */
 		auto opts = new CoreOptions();
