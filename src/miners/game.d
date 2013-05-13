@@ -13,6 +13,7 @@ import lib.sdl.sdl;
 import charge.charge;
 import charge.sys.file;
 import charge.sys.memory;
+import charge.util.png;
 import charge.util.memory;
 import charge.platform.homefolder;
 
@@ -21,36 +22,24 @@ import miners.types;
 import miners.error;
 import miners.world;
 import miners.runner;
-import miners.viewer;
 import miners.defines;
 import miners.startup;
 import miners.options;
 import miners.debugger;
 import miners.interfaces;
 import miners.background;
-import miners.ion.runner;
-import miners.lua.runner;
-import miners.lua.builtin;
-import miners.gfx.font;
 import miners.gfx.manager;
-import miners.beta.world;
-import miners.isle.world;
 import miners.menu.base;
 import miners.menu.main;
-import miners.menu.beta;
 import miners.menu.list;
 import miners.menu.error;
 import miners.menu.pause;
 import miners.menu.classic;
 import miners.menu.blockselector;
-import miners.terrain.beta;
-import miners.terrain.chunk;
 import miners.classic.world;
 import miners.classic.runner;
-import miners.importer.info;
+import miners.importer.parser;
 import miners.importer.network;
-import miners.importer.texture;
-import miners.importer.classicinfo;
 
 static import miners.builder.classic;
 
@@ -85,10 +74,6 @@ private:
 
 	GfxDraw d;
 
-	// Extracted files from minecraft
-	void[] terrainFile;
-
-
 public:
 	mixin SysLogging;
 
@@ -113,8 +98,14 @@ public:
 
 		parseArgs(args);
 
-		//if (!running)
-			//return;
+		if (!running) {
+			auto opts = new CoreOptions();
+			opts.title = "Charged Miners";
+			opts.flags = coreFlag.CTL;
+			super(opts);
+			running = false;
+			return;
+		}
 
 		/* This will initalize Core and other important things */
 		auto opts = new CoreOptions();
@@ -161,6 +152,9 @@ public:
 		p.add(opts.fovName, opts.fov());
 		p.add(opts.fogName, opts.fog());
 		p.add(opts.shadowName, opts.shadow());
+		p.add(opts.uiSizeName, opts.uiSize());
+		p.add(opts.speedRunName, opts.speedRun());
+		p.add(opts.speedWalkName, opts.speedWalk());
 		p.add(opts.failsafeName, opts.failsafe);
 		p.add(opts.lastMcUrlName, opts.lastMcUrl());
 		p.add(opts.useCmdPrefixName, opts.useCmdPrefix());
@@ -168,15 +162,10 @@ public:
 		p.add(opts.lastClassicServerName, opts.lastClassicServer());
 		p.add(opts.lastClassicServerHashName, opts.lastClassicServerHash());
 
-		delete opts;
+		breakApartAndNull(opts);
+
 		delete rm;
 		delete d;
-
-		if (terrainFile !is null) {
-			auto fm = FileManager();
-			fm.remBuiltin(borrowedModernTerrainTexture);
-			cFree(terrainFile.ptr);
-		}
 
 		super.close();
 	}
@@ -196,9 +185,6 @@ protected:
 		BackgroundRunner br = new BackgroundRunner(opts);
 		push(br);
 
-		// Setup the inbuilt script files
-		initLuaBuiltins();
-
 		auto p = Core().properties;
 		opts.failsafe = p.getIfNotFoundSet(opts.failsafeName, false);
 
@@ -206,6 +192,7 @@ protected:
 		rm = new RenderManager(opts.failsafe);
 		opts.rendererString = rm.s;
 		opts.rendererBuildType = rm.bt;
+		opts.rendererBackground = rm.canDoDeferred;
 		opts.rendererBuildIndexed = rm.textureArray;
 		opts.changeRenderer = &changeRenderer;
 		opts.aa ~= &rm.setAa;
@@ -219,23 +206,11 @@ protected:
 		debug { opts.showDebug = true; }
 
 		// Setup the skin loader.
-		auto defSkin = GfxColorTexture(Color4f.White);
+		auto defSkin = GfxColorTexture(SysPool(), Color4f.White);
 		opts.defaultSkin = defSkin;
 		skin = new SkinDownloader(opts);
 		opts.getSkin = &skin.getSkin;
 		sysReference(&defSkin, null);
-
-		// Do this always.
-		borrowModernTerrainTexture();
-
-		// Most common problem people have is missing terrain.png
-		// XXX Still does this here :-/
-		Picture pic = getModernTerrainTexture();
-		if (pic is null) {
-			auto text = format(terrainNotFoundText, chargeConfigFolder);
-			throw new GameException(text, null, true);
-		}
-		sysReference(&pic, null);
 
 		return push(new StartupRunner(this, opts, &doneStartup));
 	}
@@ -264,12 +239,9 @@ protected:
 			} else if (opts.classicServerList !is null) {
 				return displayClassicList(opts.classicServerList);
 			} else {
-				assert(false, "Classic arguments in wrong state");
+				throw new GameException("Classic arguments in wrong state", null, true);
 			}
 		}
-
-		if (opts.levelPath !is null)
-			return loadLevelModern(opts.levelPath);
 
 		return displayMainMenu();
 	}
@@ -490,47 +462,6 @@ protected:
 		return true;
 	}
 
-	/**
-	 * Borrow the modern terrain.png form minecraft.jar.
-	 */
-	void borrowModernTerrainTexture()
-	{
-		// Try and load the terrain png file from minecraft.jar.
-		try {
-			terrainFile = extractMinecraftTexture();
-			assert(terrainFile !is null);
-			l.info("Using borrowed terrain.png from minecraft.jar");
-		} catch (Exception e) {
-			l.info("Could not extract terrain.png from minecraft.jar because:");
-			l.info(e.classinfo.name, " ", e);
-			return;
-		}
-
-		auto fm = FileManager();
-		fm.addBuiltin(borrowedModernTerrainTexture, terrainFile);
-	}
-
-	bool checkLevel(string level)
-	{
-		auto ni = checkMinecraftLevel(level);
-
-		if (ni is null) {
-			l.fatal("Could not find level.dat in the level directory");
-			l.fatal("This probably isn't a level, exiting the viewer.");
-			l.fatal("looked in this folder %s", level);
-			return false;
-		}
-
-		if (!ni.beta) {
-			l.fatal("Could not find the region folder in the level directory");
-			l.fatal("This probably isn't a beta level, exiting the viewer.");
-			l.fatal("looked in this folder %s", level);
-			return false;
-		}
-
-		return true;
-	}
-
 
 	/*
 	 *
@@ -574,81 +505,9 @@ protected:
 	 */
 
 
-	void chargeIon()
-	{
-		Runner r;
-
-		try {
-			r = new IonRunner(this, opts, null);
-		} catch (Exception e) {
-			displayError(e, false);
-			return;
-		}
-
-		push(r);
-	}
-
 	void connectedTo(ClassicConnection cc, uint x, uint y, uint z, ubyte[] data)
 	{
 		auto r = new ClassicRunner(this, opts, cc, x, y, z, data);
-		push(r);
-	}
-
-	void loadLevelModern(string level)
-	{
-		Runner r;
-		World w;
-
-		if (level is null) {
-			w = new IsleWorld(opts);
-		} else if (isdir(level)) {
-			auto info = checkMinecraftLevel(level);
-
-			// XXX Better warning
-			if (!info || !info.beta)
-				throw new GameException("Invalid Level Given", null, false);
-
-			w = new BetaWorld(info, opts);
-		} else {
-			throw new GameException("Level needs to be a directory", null, false);
-		}
-
-		auto scriptName = "script/main-level.lua";
-		try {
-			r = new ScriptRunner(this, opts, w, scriptName);
-		} catch (Exception e) {
-			l.fatal("Could not find or run \"%s\" (%s)", scriptName, e);
-		}
-
-		if (r is null)
-			r = new ViewerRunner(this, opts, w);
-
-		if (opts.shouldBuildAll) {
-			int times = 5;
-			ulong total;
-
-			l.info("Building all %s times, please wait...", times);
-			writefln("Building all %s times, please wait...", times);
-
-			for (int i; i < times; i++) {
-				w.t.unbuildAll();
-				charge.sys.resource.Pool().collect();
-
-				auto t1 = SDL_GetTicks();
-				while(w.t.buildOne()) { }
-				auto t2 = SDL_GetTicks();
-
-				auto diff = t2 - t1;
-				total += i > 0 ? diff : 0;
-
-				l.info("Build time: %s seconds", diff / 1000.0);
-				writefln("Build time: %s seconds", diff / 1000.0);
-			}
-
-			l.info("Average time: %s seconds", total / (times - 1) / 1000.0);
-			writefln("Average time: %s seconds", total / (times - 1) / 1000.0);
-		}
-
 		push(r);
 	}
 
@@ -665,22 +524,6 @@ protected:
 
 		push(r);
 	}
-
-
-	/*
-	 *
-	 * Error messages.
-	 *
-	 */
-
-
-	const string terrainNotFoundText =
-`Could not find terrain.png! You have a couple of options, easiest is just to
-install Minecraft and Charged Miners will get it from there. Another option is
-to get one from a texture pack and place it in either the working directory of
-the executable. Or in the Charged Miners config folder located here:
-
-%s`;
 
 
 	/*
@@ -704,16 +547,6 @@ the executable. Or in the Charged Miners config folder located here:
 	void displayClassicPauseMenu(Runner part)
 	{
 		push(new PauseMenu(this, opts, part));
-	}
-
-	void displayLevelSelector()
-	{
-		try {
-			auto lm = new LevelMenu(this, opts);
-			push(lm);
-		} catch (Exception e) {
-			displayError(e, false);
-		}
 	}
 
 	void displayClassicBlockSelector(void delegate(ubyte) selectedDg)

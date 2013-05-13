@@ -40,7 +40,7 @@ public:
 		w.addTicker(this);
 
 		if (text is null) {
-			text = new GfxDynamicTexture(null);
+			text = GfxDynamicTexture();
 			w.opts.classicFont().render(text, name);
 		}
 
@@ -50,10 +50,11 @@ public:
 		}
 	}
 
-	~this()
+	void breakApart()
 	{
 		w.remTicker(this);
 		sysReference(&text, null);
+		super.breakApart();
 	}
 
 	void update(Point3d pos, double heading, double pitch)

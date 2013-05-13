@@ -1,5 +1,8 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for Texture (s).
+ */
 module charge.gfx.texture;
 
 import std.string : format, toString;
@@ -15,6 +18,11 @@ import charge.gfx.gl;
 import charge.gfx.target;
 
 
+/**
+ * 2D Texture with selectable filtering.
+ *
+ * @ingroup Resource
+ */
 class Texture : Resource
 {
 public:
@@ -35,38 +43,21 @@ protected:
 private:
 	mixin Logging;
 
-package:
-	this(Pool p, string name, GLuint target)
-	{
-		super(p, uri, name);
-		this.glTarget = target;
-	}
-
-	this(Pool p, string name, GLuint target, uint id, uint w, uint h)
-	{
-		this(p, name, target);
-		this.glId = id;
-		this.w = w;
-		this.h = h;
-	}
-
-	~this()
-	{
-
-	}
-
 public:
 	uint id()
 	{
 		return glId;
 	}
 
-	static Texture opCall(string filename)
-	{
-		auto p = Pool();
+	static Texture opCall(Pool p, string filename)
+	in {
+		assert(p !is null);
+		assert(filename !is null);
+	}
+	body {
 		if (filename is null)
 			return null;
-		
+
 		auto r = p.resource(uri, filename);
 		auto t = cast(Texture)r;
 		if (r !is null) {
@@ -80,13 +71,25 @@ public:
 			return fromPicture(p, filename);
 	}
 
-	static Texture opCall(string name, Picture pic)
+	static Texture opCall(Picture pic)
 	{
-		auto p = Pool();
-
 		auto id = textureFromPicture(pic);
 
-		auto t = new Texture(Pool(), name, GL_TEXTURE_2D, id, pic.width, pic.height);
+		auto t = new Texture(null, null, GL_TEXTURE_2D, id, pic.width, pic.height);
+		t.filter = Texture.Filter.Linear;
+
+		return t;
+	}
+
+	static Texture opCall(Pool p, string name, Picture pic)
+	in {
+		assert(p !is null);
+		assert(name !is null);
+	}
+	body {
+		auto id = textureFromPicture(pic);
+
+		auto t = new Texture(p, name, GL_TEXTURE_2D, id, pic.width, pic.height);
 		t.filter = Texture.Filter.Linear;
 
 		return t;
@@ -136,7 +139,7 @@ public:
 			glGetFloatv(0x84FF, &aniso);
 		break;
 		}
-	
+
 		glTexParameterf(glTarget, 0x84FE, aniso);
 		glTexParameteri(glTarget, GL_TEXTURE_WRAP_S, clamp);
 		glTexParameteri(glTarget, GL_TEXTURE_WRAP_T, clamp);
@@ -149,6 +152,26 @@ public:
 		glBindTexture(glTarget, 0);
 	}
 
+package:
+	this(Pool p, string name, GLuint target)
+	{
+		super(p, uri, name);
+		this.glTarget = target;
+	}
+
+	this(Pool p, string name, GLuint target, uint id, uint w, uint h)
+	{
+		this(p, name, target);
+		this.glId = id;
+		this.w = w;
+		this.h = h;
+	}
+
+	~this()
+	{
+
+	}
+
 private:
 	static Texture fromPicture(Pool p, string filename)
 	{
@@ -158,12 +181,12 @@ private:
 		if (pic is null)
 			return null;
 		scope(exit)
-			pic.reference(&pic, null);
+			reference(&pic, null);
 
 		auto id = textureFromPicture(pic);
 
 		l.info("Loaded %s", filename);
-		t = new Texture(Pool(), filename, GL_TEXTURE_2D, id, pic.width, pic.height);
+		t = new Texture(p, filename, GL_TEXTURE_2D, id, pic.width, pic.height);
 		t.filter = Texture.Filter.Linear;
 
 		return t;
@@ -198,11 +221,9 @@ private:
 
 	static Texture fromDdsFile(Pool p, string filename)
 	{
-		auto file = FileManager(filename);
-		if (file is null) {
-			l.warn("Failed to load %s: file not found", filename);
+		auto file = p.load(filename);
+		if (file is null)
 			return null;
-		}
 		scope(exit)
 			delete file;
 
@@ -240,7 +261,7 @@ private:
 		default:
 			l.warn("Unknown fourCC format");
 		}
-			
+
 		glGenTextures(1, cast(GLuint*)&id);
 
 		glBindTexture(GL_TEXTURE_2D, id);
@@ -264,18 +285,23 @@ private:
 
 }
 
+/**
+ * 2D Texture with selectable filtering.
+ *
+ * @ingroup Resource
+ */
 class ColorTexture : Texture
 {
 private:
 	mixin Logging;
 
 public:
-	static ColorTexture opCall(Color3f c)
+	static ColorTexture opCall(Pool p, Color3f c)
 	{
-		return opCall(Color4f(c));
+		return opCall(p, Color4f(c));
 	}
 
-	static ColorTexture opCall(Color4f c)
+	static ColorTexture opCall(Pool p, Color4f c)
 	{
 		Color4b rgba;
 		rgba.r = cast(ubyte)(c.r * 255);
@@ -283,12 +309,7 @@ public:
 		rgba.b = cast(ubyte)(c.b * 255);
 		rgba.a = cast(ubyte)(c.a * 255);
 
-		return opCall(rgba);
-	}
-
-	static ColorTexture opCall(Color4b c)
-	{
-		return opCall(Pool(), c);
+		return opCall(p, rgba);
 	}
 
 	static ColorTexture opCall(Pool p, Color4b c)
@@ -340,12 +361,36 @@ protected:
 
 }
 
+/**
+ * 2D Texture with selectable filtering.
+ *
+ * @ingroup Resource
+ */
 class DynamicTexture : Texture
 {
 public:
-	this(string name)
+	static DynamicTexture opCall()
 	{
-		super(Pool(), name, GL_TEXTURE_2D);
+		return new DynamicTexture(null, null);
+	}
+
+	static DynamicTexture opCall(Pool p, string name)
+	in {
+		assert(p !is null);
+		assert(name !is null);
+	}
+	body {
+		if (name is null)
+			return null;
+
+		auto r = p.resource(uri, name);
+		auto t = cast(DynamicTexture)r;
+		if (r !is null) {
+			assert(t !is null);
+			return t;
+		}
+
+		return new DynamicTexture(p, name);
 	}
 
 	void update(uint id, uint w, uint h)
@@ -357,23 +402,53 @@ public:
 		this.h = h;
 	}
 
+protected:
+	this(Pool p, string name)
+	{
+		super(p, name, GL_TEXTURE_2D);
+	}
 }
 
+/**
+ * Texture that wraps another texture, used to swap out textures on the fly.
+ *
+ * @ingroup Resource
+ */
 class WrappedTexture : Texture
 {
 private:
 	Texture tex;
 
 public:
-	this(string name, Texture tex)
+	static WrappedTexture opCall(Texture t)
+	{
+		return new WrappedTexture(null, null, t);
+	}
+
+	/**
+	 * Wraps a texture, if name is already in pool returns
+	 * it instead and updates it with t.
+	 */
+	static WrappedTexture opCall(Pool p, string name, Texture t)
 	in {
-		assert(tex !is null);
-		assert(cast(WrappedTexture)tex is null);
+		assert(p !is null);
+		assert(t !is null);
+		assert(name !is null);
+		assert(cast(WrappedTexture)t is null);
 	}
 	body {
-		reference(&this.tex, tex);
+		if (name is null)
+			return null;
 
-		super(Pool(), name, 0);
+		auto r = p.resource(uri, name);
+		auto wt = cast(WrappedTexture)r;
+		if (r !is null) {
+			assert(t !is null);
+			wt.update(t);
+			return wt;
+		}
+
+		return new WrappedTexture(p, name, t);
 	}
 
 	~this()
@@ -384,6 +459,7 @@ public:
 	void update(Texture tex)
 	in {
 		assert(tex !is null);
+		assert(cast(WrappedTexture)tex is null);
 	}
 	body {
 		reference(&this.tex, tex);
@@ -408,17 +484,43 @@ public:
 	{
 		assert(false, "filtering not supported");
 	}
+
+protected:
+	this(Pool p, string name, Texture tex)
+	in {
+		assert(tex !is null);
+		assert(cast(WrappedTexture)tex is null);
+	}
+	body {
+		reference(&this.tex, tex);
+
+		super(p, name, 0);
+	}
 }
 
+/**
+ * 2D Texture usable as a target as well, with selectable filtering.
+ *
+ * @ingroup Resource
+ */
 class TextureTarget : Texture, RenderTarget
 {
 private:
 	GLuint fbo;
 
 public:
-	static TextureTarget opCall(string name, uint w, uint h)
+	static TextureTarget opCall(uint w, uint h)
 	{
-		return new TextureTarget(Pool(), name, w, h);
+		return new TextureTarget(null, null, w, h);
+	}
+
+	static TextureTarget opCall(Pool p, string name, uint w, uint h)
+	in {
+		assert(p !is null);
+		assert(name !is null);
+	}
+	body {
+		return new TextureTarget(p, name, w, h);
 	}
 
 	~this()
@@ -485,6 +587,11 @@ protected:
 	}
 }
 
+/**
+ * Texture Array with selectable filtering.
+ *
+ * @ingroup Resource
+ */
 class TextureArray : Texture
 {
 public:
@@ -525,22 +632,34 @@ public:
 		return true;
 	}
 
-	static TextureArray fromTileMap(string name, int num_w, int num_h)
+	static TextureArray fromTileMap(Pool p, string name, int num_w, int num_h)
 	{
 		if (!check())
 			return null;
 
-		auto pic = Picture(name);
+		auto pic = Picture(p, name);
 		/* Error printing already taken care of */
 		if (pic is null)
 			return null;
 		scope(exit)
-			pic.reference(&pic, null);
+			reference(&pic, null);
 
-		return fromTileMap(name, pic, num_w, num_h);
+		return fromTileMap(p, name, pic, num_w, num_h);
 	}
 
-	static TextureArray fromTileMap(string name, Picture pic, int num_w, int num_h)
+	static TextureArray fromTileMap(Picture pic, int num_w, int num_h)
+	{
+		return fromTileMap(null, null, pic, num_w, num_h);
+	}
+
+protected:
+	this(Pool p, string name, uint id, uint w, uint h, uint length)
+	{
+		super(p, name, GL_TEXTURE_2D_ARRAY_EXT, id, w, h);
+		this.length = length;
+	}
+
+	static TextureArray fromTileMap(Pool p, string name, Picture pic, int num_w, int num_h)
 	{
 		int glFormat = GL_RGBA;
 		int glComponents = 4;
@@ -605,73 +724,10 @@ public:
 			new_name = name ~ "?array";
 			l.info("Loaded %s", new_name);
 		}
-		auto t = new TextureArray(Pool(), new_name,
+		auto t = new TextureArray(p, new_name,
 					  id, pic.width, pic.height, length);
 		t.filter = Texture.Filter.Linear;
 
 		return t;
 	}
-
-protected:
-	this(Pool p, string name, uint id, uint w, uint h, uint length)
-	{
-		super(p, name, GL_TEXTURE_2D_ARRAY_EXT, id, w, h);
-		this.length = length;
-	}
-
-}
-
-class TextureLoader
-{
-private:
-	mixin Logging;
-
-	static int textureFromPicture(Picture pic)
-	{
-		int glFormat = GL_RGBA;
-		int glComponents = 4;
-		float a;
-		uint id;
-
-		glGenTextures(1, cast(GLuint*)&id);
-
-		glBindTexture(GL_TEXTURE_2D, id);
-
-		glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
-		glTexImage2D(
-			GL_TEXTURE_2D,    //target
-			0,                //level
-			glComponents,     //internalformat
-			pic.width,        //width
-			pic.height,       //height
-			0,                //border
-			glFormat,         //format
-			GL_UNSIGNED_BYTE, //type
-			pic.pixels);      //pixels
-		glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_FALSE);
-
-		return id;
-	}
-
-private:
-	static Texture load(string filename)
-	{
-		GLuint id;
-
-		auto pic = Picture(filename);
-		/* Error printing already taken care of */
-		if (pic is null)
-			return null;
-		scope(exit)
-			pic.reference(&pic, null);
-
-		id = textureFromPicture(pic);
-
-		l.info("Loaded %s", filename);
-		auto t = new Texture(Pool(), filename, GL_TEXTURE_2D, id, pic.width, pic.height);
-		t.filter = Texture.Filter.Linear;
-
-		return t;
-	}
-
 }

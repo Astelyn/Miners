@@ -1,27 +1,60 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright at the bottom of this file (GPLv2 only).
+
+/**
+ * Source file that includes all of charge into one namespace.
+ *
+ * Also prefixing classes due to name collision.
+ */
 module charge.charge;
 
-/*
- * Includes all of charge into one namespace.
- * Also prefixing classes for due to name collision otherwise.
- */
+
+/*!
+@mainpage
+@section start Where to start looking
+If you want to look up math related things look at the
+@link Math Math group @endlink.
+@n@n
+For Charged Miners classic a good as place as any is the
+@link miners.classic.runner.ClassicRunner ClassicRunner @endlink
+@link src/miners/classic/runner.d [code] @endlink which holds most of the
+gameplay logic for Charged Miners and links to the other parts of it.
+*/
+
+/*!
+@defgroup Math Math related structs, classes and functions.
+
+Charge uses a OpenGL based convetions for axis, so Y+ is up, X+ is right and
+Z- is forward. For rotations the convention is to use Quatd to represent them,
+which might be harder to understand in the beginning but has advantages over
+other methods.
+*/
+
+/*!
+@defgroup Resource The charge resource system.
+
+All resources in charge are reference counted.
+*/
 
 public
 {
-	static import charge.util.memory;
-	static import charge.util.vector;
+	import charge.util.memory : cMemoryArray;
+	import charge.util.properties : Properties;
+	import charge.util.vector : Vector, VectorData;
 
-	static import charge.math.mesh;
-	static import charge.math.picture;
-	static import charge.math.color;
-	static import charge.math.vector3d;
-	static import charge.math.point3d;
-	static import charge.math.quatd;
-	static import charge.math.movable;
-	static import charge.math.matrix3x3d;
-	static import charge.math.matrix4x4d;
+	import charge.math.mesh : RigidMesh, RigidMeshBuilder;
+	import charge.math.picture : Picture;
+	import charge.math.color : Color4b, Color3f, Color4f;
+	import charge.math.vector3d : Vector3d;
+	import charge.math.point3d : Point3d;
+	import charge.math.quatd : Quatd;
+	import charge.math.movable : Movable, breakApartAndNull;
+	import charge.math.matrix3x3d : Matrix3x3d;
+	import charge.math.matrix4x4d : Matrix4x4d;
+}
 
+public
+{
 	static import charge.net.util;
 	static import charge.net.http;
 	static import charge.net.packet;
@@ -66,7 +99,6 @@ public
 	static import charge.ctl.joystick;
 
 	static import charge.sys.logger;
-	static import charge.sys.properties;
 	static import charge.sys.resource;
 
 	static import charge.game.world;
@@ -83,23 +115,6 @@ public
 
 	static import charge.core;
 }
-
-alias charge.util.memory.cMemoryArray cMemoryArray;
-alias charge.util.vector.Vector Vector;
-alias charge.util.vector.VectorData VectorData;
-
-alias charge.math.mesh.RigidMesh RigidMesh;
-alias charge.math.mesh.RigidMeshBuilder RigidMeshBuilder;
-alias charge.math.picture.Picture Picture;
-alias charge.math.movable.Movable Movable;
-alias charge.math.vector3d.Vector3d Vector3d;
-alias charge.math.point3d.Point3d Point3d;
-alias charge.math.quatd.Quatd Quatd;
-alias charge.math.color.Color4b Color4b;
-alias charge.math.color.Color3f Color3f;
-alias charge.math.color.Color4f Color4f;
-alias charge.math.matrix3x3d.Matrix3x3d Matrix3x3d;
-alias charge.math.matrix4x4d.Matrix4x4d Matrix4x4d;
 
 alias charge.net.packet.Packet NetPacket;
 alias charge.net.packet.RealiblePacket RealiblePacket;
@@ -154,7 +169,6 @@ alias charge.gfx.camera.ProjCamera GfxProjCamera;
 alias charge.gfx.camera.OrthoCamera GfxOrthoCamera;
 alias charge.gfx.camera.IsoCamera GfxIsoCamera;
 alias charge.gfx.renderer.Renderer GfxRenderer;
-alias charge.gfx.fixed.FixedRenderer GfxFixedRenderer;
 alias charge.gfx.forward.ForwardRenderer GfxForwardRenderer;
 alias charge.gfx.deferred.DeferredRenderer GfxDeferredRenderer;
 alias charge.gfx.target.RenderTarget GfxRenderTarget;
@@ -183,11 +197,11 @@ alias charge.ctl.input.Joystick CtlJoystick;
 
 alias charge.sys.logger.Logger SysLogger;
 alias charge.sys.logger.Logging SysLogging;
-alias charge.sys.properties.Properties SysProperties;
 alias charge.sys.file.File SysFile;
-alias charge.sys.file.FileManager SysFileManager;
 alias charge.sys.file.ZipFile SysZipFile;
-alias charge.sys.resource.Resource.reference sysReference;
+alias charge.sys.resource.reference sysReference;
+alias charge.sys.resource.Resource SysResource;
+alias charge.sys.resource.Pool SysPool;
 
 alias charge.game.world.Ticker GameTicker;
 alias charge.game.world.Actor GameActor;
@@ -216,7 +230,7 @@ alias charge.core.coreFlag coreFlag;
 
 
 
-string licenseText = `
+string licenseText = r"
 Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 
 This program is free software; you can redistribute it and/or
@@ -232,7 +246,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-`;
+";
 
 import license;
 

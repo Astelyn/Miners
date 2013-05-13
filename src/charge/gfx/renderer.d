@@ -1,5 +1,8 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for Renderer base class.
+ */
 module charge.gfx.renderer;
 
 import charge.math.color;
@@ -13,7 +16,6 @@ import charge.gfx.cull;
 import charge.gfx.renderqueue;
 import charge.gfx.deferred;
 import charge.gfx.forward;
-import charge.gfx.fixed;
 import charge.gfx.target;
 import charge.gfx.shader;
 import charge.gfx.texture;
@@ -32,16 +34,15 @@ protected:
 	static bool initilized;
 	static bool deferred;
 	static bool forward;
-	static bool fixed;
 
 public:
-	static void init()
+	static bool init()
 	{
-		fixed = FixedRenderer.init();
 		forward = ForwardRenderer.init();
 		deferred = DeferredRenderer.init();
 
 		initilized = true;
+		return forward || deferred;
 	}
 
 	this()
@@ -57,7 +58,7 @@ public:
 		else if (forward)
 			return new ForwardRenderer();
 		else
-			return new FixedRenderer();
+			assert(false);
 	}
 
 	RenderTarget target()

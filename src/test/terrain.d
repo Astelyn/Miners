@@ -10,7 +10,6 @@ import std.random : rand, rand_seed;
 import lib.sdl.sdl;
 
 import charge.charge;
-
 import charge.math.mesh;
 
 
@@ -83,7 +82,7 @@ public:
 		gfx = GfxRigidModel(w.gfx, name);
 		gfx.position = Point3d(16 * -64, 0.1, 16 * -64);
 
-		gfx.setMaterial(new GfxSimpleMaterial());
+		gfx.setMaterial(new GfxSimpleMaterial(w.gfx.pool));
 		gfx.getMaterial()["tex"] = "res/water_tile.png";
 		sysReference(&rm, null);
 	}
@@ -140,13 +139,13 @@ public:
 		name = rm.getName();
 
 		gfx = GfxRigidModel(w.gfx, name);
-		phy = new charge.phy.actor.Static(w.phy, new charge.phy.geom.GeomMesh(name));
+		phy = new charge.phy.actor.Static(w.phy, new charge.phy.geom.GeomMesh(w.phy.pool, name));
 
 		gfx.position = Point3d(16 * -64, 0, 16 * -64);
 		phy.position = gfx.position;
 		phy.rotation = gfx.rotation;
 
-		gfx.setMaterial(new GfxSimpleMaterial());
+		gfx.setMaterial(new GfxSimpleMaterial(w.gfx.pool));
 		gfx.getMaterial().setTexture("tex", "res/dirt_tile.png");
 		sysReference(&rm, null);
 
@@ -669,8 +668,8 @@ public:
 
 		GfxRenderer.init();
 
-		w = new GameWorld();
-		sl = new GfxSimpleLight();
+		w = new GameWorld(SysPool());
+		sl = new GfxSimpleLight(w.gfx);
 		projcam = new GfxProjCamera();
 		isocam = new GfxIsoCamera(400, 300, -500, 500);
 		terrain = new Terrain(w, 0);
@@ -679,15 +678,12 @@ public:
 		projcam.position = Point3d(0.0, 5.0, 15.0);
 		sl.rotation = Quatd(PI / 4, Vector3d.Up) * Quatd(-PI / 4, Vector3d.Left);
 
-		w.gfx.add(sl);
-		auto pl = new GfxPointLight();
+		auto pl = new GfxPointLight(w.gfx);
 		pl.position = Point3d(0.0, 0.0, 0.0);
 		pl.size = 20;
-		w.gfx.add(pl);
-		spl = new GfxSpotLight();
+		spl = new GfxSpotLight(w.gfx);
 		spl.position = Point3d(0.0, 5.0, 15.0);
 		spl.far = 150;
-		w.gfx.add(spl);
 
 		w.phy.setStepLength(10);
 
@@ -980,7 +976,8 @@ class Cube : Ticker
 		gfx = GfxRigidModel(w.gfx, "res/cube.bin");
 		gfx.position = pos;
 
-		phy = new PhyCube(w.phy, pos);
+		phy = new PhyCube(w.phy);
+		phy.position = pos;
 	}
 }
 

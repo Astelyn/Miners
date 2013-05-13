@@ -1,22 +1,25 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for World, Actor and Ticker.
+ */
 module charge.game.world;
 
 import charge.util.vector;
 import charge.math.movable;
 import charge.gfx.world;
 import charge.phy.world;
+import charge.sys.resource : Pool;
 
 
-interface Ticker
-{
-	void tick();
-}
-
+/**
+ * Base class for all actors inside a World.
+ */
 abstract class Actor : Movable
 {
 public:
 	World w;
+
 
 public:
 	this(World world)
@@ -27,21 +30,33 @@ public:
 
 	~this()
 	{
-		w.rem(this);
+		assert(w is null);
 	}
 
+	void breakApart()
+	{
+		if (w !is null) {
+			w.remove(this);
+			w = null;
+		}
+	}
 }
 
+/**
+ * When added to World recieves a tick ever logic step.
+ */
+interface Ticker
+{
+	void tick();
+}
+
+/**
+ * Container object for other sub system Worlds and actors.
+ */
 class World
 {
-private:
-	charge.gfx.world.World gfxWorld;
-	charge.phy.world.World phyWorld;
-
 public:
-
-	alias charge.gfx.world.World GfxWorld;
-	alias charge.phy.world.World PhyWorld;
+	Pool pool;
 
 	alias Vector!(Actor) ActorVector;
 	alias Vector!(Ticker) TickerVector;
@@ -49,24 +64,43 @@ public:
 	ActorVector actors;
 	TickerVector tickers;
 
-	this()
-	{
+	charge.gfx.world.World gfx;
+	charge.phy.world.World phy;
+
+
+public:
+	this(Pool p)
+	in {
+		assert(p !is null);
+	}
+	body {
+		this.pool = p;
+
 		if (charge.gfx.gfx.gfxLoaded) {
-			gfxWorld = new GfxWorld();
+			gfx = new charge.gfx.world.World(pool);
 		}
 
 		if (charge.phy.phy.phyLoaded) {
-			phyWorld = new PhyWorld();
+			phy = new charge.phy.world.World(pool);
 			phy.setStepLength(10);
 		}
 	}
 
 	~this()
 	{
-		Actor a;
+		assert(actors.length == 0);
+		assert(gfx is null);
+		assert(phy is null);
+	}
 
+	void breakApart()
+	{
+		Actor a;
 		while((a = actors[0]) !is null)
-			delete a;
+			a.breakApart();
+
+		breakApartAndNull(gfx);
+		breakApartAndNull(phy);
 	}
 
 	void tick()
@@ -78,13 +112,15 @@ public:
 			t.tick();
 	}
 
+
 	/*
 	 * Vector access
 	 */
 
+
 	void add(Actor a)
 	{
-		actors.add = a;
+		actors.add(a);
 	}
 
 	void addTicker(Ticker t)
@@ -92,7 +128,7 @@ public:
 		tickers.add(t);
 	}
 
-	void rem(Actor a)
+	void remove(Actor a)
 	{
 		actors.remove = a;
 	}
@@ -101,19 +137,4 @@ public:
 	{
 		tickers.remove(t);
 	}
-
-	/*
-	 * Misc
-	 */
-
-	GfxWorld gfx()
-	{
-		return gfxWorld;
-	}
-
-	PhyWorld phy()
-	{
-		return phyWorld;
-	}
-
 }

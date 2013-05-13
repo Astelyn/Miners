@@ -44,7 +44,7 @@ public:
 		
 		rt = GfxDefaultTarget();
 
-		w = new GameWorld();
+		w = new GameWorld(SysPool());
 		view_cam = new GfxProjCamera(45.0, cast(double)rt.width / rt.height, 1, 1000);
 		m = new GameProjCameraMover(view_cam);
 		view_cam.position = Point3d(0.0, 0.0, 5.0);
@@ -53,14 +53,20 @@ public:
 
 		cam = new GfxProjCamera(45.0, cast(double)rt.width / rt.height, 1, 500);
 
-		sphere = GfxVBO("res/sphere.bin");
+		sphere = GfxVBO(w.gfx.pool, "res/sphere.bin");
 	}
 
 	~this()
 	{
 	}
 
-protected:
+	void close()
+	{
+		breakApartAndNull(w);
+		sysReference(&sphere, null);
+		super.close();
+	}
+
 	void input()
 	{
 		SDL_Event e;
@@ -250,7 +256,7 @@ protected:
 		glTranslated(center.x, center.y, center.z);
 		glScaled(size*2, size*2, size*2);
 		glColor4d(1.0, 0.2, 0.2, 0.5);
-		sphere.drawFixed();
+		//sphere.drawFixed();
 		glPopMatrix();
 
 		glPushMatrix();
@@ -258,7 +264,7 @@ protected:
 		glTranslated(center.x, center.y, center.z);
 		glScaled(size*2, size*2, size*2);
 		glColor4d(0.2, 1.0, 0.2, 0.5);
-		sphere.drawFixed();
+		//sphere.drawFixed();
 		glPopMatrix();
 
 		glPushMatrix();
@@ -266,7 +272,7 @@ protected:
 		glTranslated(center.x, center.y, center.z);
 		glScaled(size*2, size*2, size*2);
 		glColor4d(0.2, 0.2, 1.0, 0.5);
-		sphere.drawFixed();
+		//sphere.drawFixed();
 		glPopMatrix();
 
 		glDisable(GL_BLEND);
@@ -278,9 +284,4 @@ protected:
 	void network()
 	{
 	}
-
-	void close()
-	{
-	}
-
 }

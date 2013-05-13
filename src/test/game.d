@@ -24,9 +24,16 @@ public:
 
 	~this()
 	{
+		assert(gfx is null);
+		assert(phy is null);
+	}
+
+	void breakApart()
+	{
 		w.remTicker(this);
-		delete gfx;
-		delete phy;
+		breakApartAndNull(gfx);
+		breakApartAndNull(phy);
+		super.breakApart();
 	}
 
 	void tick()
@@ -63,7 +70,8 @@ class Cube : Ticker
 		gfx = GfxRigidModel(w.gfx, "res/cube.bin");
 		gfx.position = pos;
 
-		phy = new PhyCube(w.phy, pos);
+		phy = new PhyCube(w.phy);
+		phy.position = pos;
 	}
 }
 
@@ -148,8 +156,14 @@ class Car : Ticker
 
 	~this()
 	{
-		foreach(w; wheels)
-			delete w;
+		assert(wheels[0] is null);
+	}
+
+	void breakApart()
+	{
+		foreach(ref w; wheels)
+			breakApartAndNull(w);
+		super.breakApart();
 	}
 
 	void tick()
@@ -173,7 +187,6 @@ class Car : Ticker
 		}
 	}
 
-	GfxCube coll;
 	GfxActor wheels[4];
 	PhyCar car;
 }
@@ -217,8 +230,8 @@ public:
 
 		GfxRenderer.init();
 
-		w = new GameWorld();
-		sl = new GfxSimpleLight();
+		w = new GameWorld(SysPool());
+		sl = new GfxSimpleLight(w.gfx);
 		GfxDefaultTarget rt = GfxDefaultTarget();
 		cam = new GfxProjCamera(45.0, cast(double)rt.width / rt.height, 1, 150);
 		r = GfxRenderer.create();
@@ -227,15 +240,12 @@ public:
 		sl.rotation = Quatd(PI/3, -PI/4, 0.0);//Quatd(PI, Vector3d.Up) * sl.rotation;
 		sl.shadow = true;
 
-		w.gfx.add(sl);
-		auto pl = new GfxPointLight();
+		auto pl = new GfxPointLight(w.gfx);
 		pl.position = Point3d(0.0, 0.0, 0.0);
 		pl.size = 20;
-		w.gfx.add(pl);
-		spl = new GfxSpotLight();
+		spl = new GfxSpotLight(w.gfx);
 		spl.position = Point3d(0.0, 5.0, 15.0);
 		spl.far = 150;
-		w.gfx.add(spl);
 
 		w.phy.setStepLength(10);
 
@@ -253,8 +263,12 @@ public:
 
 	~this()
 	{
-		delete basePackage;
-		delete w;
+	}
+
+	void close()
+	{
+		breakApartAndNull(w);
+		super.close();
 	}
 
 protected:
@@ -378,7 +392,7 @@ protected:
 				}
 				if (e.key.keysym.sym == SDLK_o) {
 					foreach(r; removable)
-						delete r;
+						r.breakApart();
 					removable.length = 0;
 				}
 			}
@@ -456,9 +470,4 @@ protected:
 	void network()
 	{
 	}
-
-	void close()
-	{
-	}
-
 }

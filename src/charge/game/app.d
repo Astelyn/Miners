@@ -1,5 +1,8 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for App base classes.
+ */
 module charge.game.app;
 
 import lib.sdl.sdl;
@@ -9,6 +12,7 @@ import charge.core;
 import charge.ctl.input;
 import charge.gfx.target;
 import charge.gfx.sync;
+import charge.gfx.gfx;
 import charge.sys.tracker;
 import charge.sys.resource;
 import charge.game.runner;
@@ -209,6 +213,9 @@ public:
 
 	void render()
 	{
+		if (!gfxLoaded)
+			return;
+
 		changed = !gfxSyncWaitAndDelete(curSync, 0);
 		if (changed)
 			return;

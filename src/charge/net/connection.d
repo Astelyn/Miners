@@ -1,5 +1,8 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for upd base Connection, see also Server and Client.
+ */
 module charge.net.connection;
 
 import std.stdio : writef;
@@ -262,7 +265,7 @@ private:
 	{
 		auto h = cast(Header*)data.ptr;
 
-		if (h.orderId <= unrealibleNumIn)
+		if (h.orderId < unrealibleNumIn)
 			return;
 
 		unrealibleNumIn = h.orderId;
@@ -348,6 +351,7 @@ private:
 		Packet p;
 	}
 
+public:
 	int state;
 
 	Socket s;

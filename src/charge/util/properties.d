@@ -1,19 +1,22 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
-module charge.sys.properties;
+/**
+ * Source file for Properties.
+ */
+module charge.util.properties;
 
 import std.conv : toInt, toUint, toDouble;
 import std.stream : BufferedFile, FileMode;
 import std.regexp : RegExp;
 import std.string : toString, toStringz;
 
-import charge.sys.logger;
 
-
+/**
+ * Parsers and saves to java like properties files.
+ */
 final class Properties
 {
-	mixin Logging;
-protected:
+private:
 	string[string] map;
 	string[] order;
 
@@ -133,7 +136,7 @@ public:
 
 		auto comment = RegExp(`^\s*#`);
 		auto setting = RegExp(`^\s*(\S*)\s*=\s*(\S*)`);
-		auto semsett = RegExp(`^\s*(\S*)\s*=?\s*:(.*)`);
+		auto semsett = RegExp(`^\s*([\S|^:]*)\s*=?\s*:(.*)$`);
 
 		auto p = new Properties();
 
@@ -157,9 +160,6 @@ public:
 				p.add(m[1].dup, m[2].dup);
 				continue;
 			}
-
-			l.warn("Could not parse line: ", n, " in file ", filename);
-			l.warn(line);
 		}
 
 		return p;

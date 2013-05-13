@@ -1,5 +1,8 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for c memory functions.
+ */
 module charge.util.memory;
 
 public import std.outofmemory : OutOfMemoryException;
@@ -20,7 +23,7 @@ debug {
 	alias charge_realloc cRealloc;
 	alias charge_free cFree;
 } else {
-	private static import std.c.stdlib;
+	static import std.c.stdlib;
 
 	alias std.c.stdlib.malloc cMalloc;
 	alias std.c.stdlib.realloc cRealloc;

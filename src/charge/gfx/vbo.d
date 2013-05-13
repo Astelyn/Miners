@@ -1,5 +1,8 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for VBO (s).
+ */
 module charge.gfx.vbo;
 
 import charge.util.vector;
@@ -12,9 +15,14 @@ import charge.sys.logger;
 import charge.sys.resource;
 
 
+/**
+ * Base class for VBO meshes.
+ *
+ * @ingroup Resource
+ */
 class VBO : Resource
 {
-public:
+protected:
 	const string uri = "vbo://";
 
 	GLuint vboVerts;
@@ -27,12 +35,10 @@ public:
 	size_t verteciesSize;
 	size_t indicesSize;
 
-protected:
 	static int used_mem;
 
 private:
 	mixin Logging;
-
 
 public:
 	~this()
@@ -97,6 +103,11 @@ protected:
 
 }
 
+/**
+ * Resource part backing @link charge.gfx.rigidmodel.RigidModel RigidModel @endlink.
+ *
+ * @ingroup Resource
+ */
 class RigidMeshVBO : VBO
 {
 protected:
@@ -110,41 +121,13 @@ protected:
 private:
 	mixin Logging;
 
-
-protected:
-	this(Pool p, RigidMeshBuilder builder)
-	{
-		this(p, null, builder.type,
-		     builder.verts, builder.iv,
-		     builder.tris, builder.it);
-	}
-
-	this(Pool p, string name, RigidMesh model)
-	{
-		numVerts = cast(GLuint)model.verts.length;
-		numIndices = cast(GLuint)model.tris.length;
-
-		this(p, name, model.type,
-		     model.verts.ptr, cast(uint)model.verts.length,
-		     model.tris.ptr, cast(uint)model.tris.length);
-	}
-
-	this(Pool p, string name, RigidMesh.Types type,
-	     Vertex *verts, uint numVerts, Triangle *tris, uint numTriangles)
-	{
-		super(p, name);
-
-		update(type, verts, numVerts, tris, numTriangles);
-	}
-
 public:
-	static RigidMeshVBO opCall(string filename)
-	{
-		return RigidMeshVBO(Pool(), filename);
-	}
-
 	static RigidMeshVBO opCall(Pool p, string filename)
-	{
+	in {
+		assert(p !is null);
+		assert(filename !is null);
+	}
+	body {
 		auto r = p.resource(uri, filename);
 		auto t = cast(RigidMeshVBO)r;
 		if (r !is null) {
@@ -152,36 +135,28 @@ public:
 			return t;
 		}
 
-		auto m = RigidMesh(filename);
+		auto m = RigidMesh(p, filename);
 		if (m is null) {
 			l.warn("failed to load %s", filename);
 			return null;
 		}
 		auto ret = new RigidMeshVBO(p, filename, m);
-		m.reference(&m, null);
+		reference(&m, null);
 		return ret;
 	}
 
 	static RigidMeshVBO opCall(RigidMeshBuilder builder)
 	{
-		return RigidMeshVBO(Pool(), builder);
-	}
-
-	static RigidMeshVBO opCall(Pool p, RigidMeshBuilder builder)
-	{
-		return new RigidMeshVBO(p, builder);
+		return new RigidMeshVBO(
+			null, null, builder.type,
+			builder.verts, builder.iv,
+			builder.tris, builder.it);
 	}
 
 	static RigidMeshVBO opCall(RigidMesh.Types type,
 	                           Vertex[] verts, Triangle[] tris)
 	{
-		return RigidMeshVBO(Pool(), type, verts, tris);
-	}
-
-	static RigidMeshVBO opCall(Pool p, RigidMesh.Types type,
-	                           Vertex[] verts, Triangle[] tris)
-	{
-		return new RigidMeshVBO(p, null, type,
+		return new RigidMeshVBO(null, null, type,
 		                        verts.ptr, cast(uint)verts.length,
 		                        tris.ptr, cast(uint)tris.length);
 	}
@@ -253,33 +228,6 @@ public:
 	}
 
 	/**
-	 * Draws the vbo using fixed vertex inputs.
-	 */
-	final void drawFixed()
-	{
-		setup();
-		doDraw();
-		cleanup();
-	}
-
-	/**
-	 * Draws a array of vbos using fixed vertex inputs.
-	 */
-	static void drawArrayFixed(RigidMeshVBO[] vbos)
-	{
-		if (!vbos.length)
-			return;
-
-		setup();
-		
-		foreach(vbo; vbos) {
-			vbo.doDraw();
-		}
-
-		cleanup();
-	}
-
-	/**
 	 * Draws a the vbo using VertexAttribArrays as inputs.
 	 *
 	 * Where the attribute index to name mapping follows the order
@@ -323,44 +271,22 @@ public:
 		glBindVertexArrayCHARGE(0);
 	}
 
-private:
-	final static void setup()
+protected:
+	this(Pool p, string name, RigidMesh model)
 	{
-		glEnable(GL_NORMALIZE);
-		glEnableClientState(GL_VERTEX_ARRAY);
-		glEnableClientState(GL_NORMAL_ARRAY);
-		glClientActiveTexture(GL_TEXTURE0);
-		glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+		numVerts = cast(GLuint)model.verts.length;
+		numIndices = cast(GLuint)model.tris.length;
+
+		this(p, name, model.type,
+		     model.verts.ptr, cast(uint)model.verts.length,
+		     model.tris.ptr, cast(uint)model.tris.length);
 	}
 
-	final void doDraw()
+	this(Pool p, string name, RigidMesh.Types type,
+	     Vertex *verts, uint numVerts, Triangle *tris, uint numTriangles)
 	{
-		glBindBufferARB(GL_ARRAY_BUFFER_ARB, vboVerts);
-		glVertexPointer(3, GL_FLOAT, Vertex.sizeof, vertOffset);
-		glNormalPointer(GL_FLOAT, Vertex.sizeof, normalOffset);
-		glTexCoordPointer(2, GL_FLOAT, Vertex.sizeof, texOffset);
-		if (indexed) {
-			glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB, vboIndices);
-			glDrawElements(primType, numIndices, GL_UNSIGNED_INT, null);
-		} else {
-			glDrawArrays(primType, 0, numVerts);
-		}
+		super(p, name);
+
+		update(type, verts, numVerts, tris, numTriangles);
 	}
-
-	final static void cleanup()
-	{
-		glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB, 0);
-		glBindBufferARB(GL_ARRAY_BUFFER_ARB, 0);
-
-		glDisableClientState(GL_VERTEX_ARRAY);
-		glDisableClientState(GL_NORMAL_ARRAY);
-		glClientActiveTexture(GL_TEXTURE2);
-		glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-		glClientActiveTexture(GL_TEXTURE1);
-		glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-		glClientActiveTexture(GL_TEXTURE0);
-		glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-		glDisable(GL_NORMALIZE);
-	}
-
 }

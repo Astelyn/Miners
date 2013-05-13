@@ -1,5 +1,8 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for CommonCore.
+ */
 module charge.platform.core.common;
 
 import lib.loader;
@@ -12,15 +15,16 @@ import charge.core;
 import charge.sfx.sfx;
 import charge.phy.phy;
 import charge.sys.logger;
-import charge.sys.properties;
 import charge.sys.file;
 import charge.sys.resource;
+import charge.util.properties;
 import charge.platform.homefolder;
 
 
 class CommonCore : Core
 {
 protected:
+	// Not using mixin, because we are pretending to be Core.
 	static Logger l;
 
 	string settingsFile;
@@ -73,7 +77,6 @@ protected:
 		const phyFlags = coreFlag.PHY | coreFlag.AUTO;
 		const sfxFlags = coreFlag.SFX | coreFlag.AUTO;
 
-		initBuiltins();
 		initSettings();
 
 		resizeSupported = p.getBool("forceResizeEnable", defaultForceResizeEnable);
@@ -192,19 +195,6 @@ protected:
 			l.info("ALUT not found, this is not an error.");
 		else
 			loadALUT(&alut.symbol);
-	}
-
-	void initBuiltins()
-	{
-		auto fm = FileManager();
-
-		void[] spotlightPicture = import("spotlight.png");
-		void[] defaultPicture = import("default.png");
-		void[] fontPicture = import("font.png");
-
-		fm.addBuiltin("res/spotlight.png", spotlightPicture);
-		fm.addBuiltin("res/default.png", defaultPicture);
-		fm.addBuiltin("res/font.png", fontPicture);
 	}
 
 	void initSettings()

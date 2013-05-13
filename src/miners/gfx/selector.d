@@ -3,6 +3,7 @@
 module miners.gfx.selector;
 
 import charge.math.mesh;
+import charge.sys.resource;
 import miners.gfx.imports;
 
 
@@ -27,14 +28,20 @@ public:
 	this(GfxWorld w)
 	{
 		super(w);
-		m = new GfxSimpleMaterial();
+		m = GfxMaterialManager.getDefault(w.pool);
 		m["color"] = Color3f(0, 0, 0);
 		vbo = GfxRigidMeshVBO(RigidMesh.Types.QUADS, vert, null);
 	}
 
 	~this()
 	{
-		delete m;
+		assert(m is null);
+	}
+
+	void breakApart()
+	{
+		breakApartAndNull(m);
+		super.breakApart();
 	}
 
 	void setBlock(int x, int y, int z)
@@ -76,23 +83,6 @@ public:
 	 *
 	 */
 
-
-	void drawFixed()
-	{
-		gluPushAndTransform(pos, rot);
-
-		glLineWidth(4);
-		glDepthFunc(GL_LEQUAL);
-		glPolygonMode(GL_FRONT, GL_LINE);
-
-		vbo.drawFixed();
-
-		glPolygonMode(GL_FRONT, GL_FILL);
-		glDepthFunc(GL_LESS);
-		glLineWidth(1);
-
-		glPopMatrix();
-	}
 
 	void drawAttrib(GfxShader s)
 	{

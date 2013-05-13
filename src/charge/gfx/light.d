@@ -1,17 +1,19 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for Light (s).
+ */
 module charge.gfx.light;
 
 import charge.math.movable;
 import charge.math.color;
 
 import charge.gfx.gl;
+import charge.gfx.world;
 import charge.gfx.texture;
 
+import charge.sys.resource : reference;
 
-class Light : Movable
-{
-}
 
 class SimpleLight : Light
 {
@@ -22,13 +24,13 @@ public:
 	Color4f specular;
 	bool shadow;
 
-	this()
+	this(World w)
 	{
+		super(w);
 		ambient = Color4f(0.2, 0.2, 0.2);
 		diffuse = Color4f(0.8, 0.8, 0.8);
 		specular = Color4f();
 	}
-
 }
 
 class PointLight : Light
@@ -38,12 +40,12 @@ public:
 	float size;
 	bool shadow;
 
-	this()
+	this(World w)
 	{
+		super(w);
 		diffuse = Color4f(0.8, 0.8, 0.8);
 		size = 10.0;
 	}
-
 }
 
 class SpotLight : Light
@@ -57,22 +59,28 @@ public:
 	bool shadow;
 	Texture texture;
 
-	this()
+	this(World w)
 	{
+		super(w);
 		diffuse = Color4f(0.8, 0.8, 0.8);
 		far = 100.0;
 		near = 0.1;
 		ratio = 1.0;
 		angle = 20.0;
 
-		texture = Texture("res/spotlight.png");
+		texture = Texture(w.pool, "res/spotlight.png");
 	}
 
 	~this()
 	{
-		texture.reference(&texture, null);
+		assert(texture is null);
 	}
 
+	void breakApart()
+	{
+		reference(&texture, null);
+		super.breakApart();
+	}
 }
 
 class Fog : Movable
@@ -87,5 +95,9 @@ public:
 		color = Color4f.White;
 		start = 100000.0;
 		stop = 100000.0;
+	}
+
+	void breakApart()
+	{
 	}
 }

@@ -70,7 +70,7 @@ public:
 
 		nextSkin ~= name;
 		auto str = format("playerSkin/%s.png", name);
-		auto ret = new GfxWrappedTexture(str, opts.defaultSkin());
+		auto ret = GfxWrappedTexture(SysPool(), str, opts.defaultSkin());
 		store[name] = ret;
 		return ret;
 	}
@@ -90,20 +90,20 @@ public:
 	void handleResponse(char[] header, char[] res)
 	{
 		auto str = format("dl/%s.png", curSkin);
+		l.info("%s", str);
 		try {
-			auto img = pngDecode(res);
-
+			auto img = pngDecode(res, true);
 			if (img is null)
 				throw new Exception("Image format not supported");
 
-			auto pic = Picture(str, img);
+			auto pic = Picture(img);
 			scope(exit)
 				sysReference(&pic, null);
 
 			if (pic is null)
 				throw new Exception("Failed create picture");
 
-			auto tex = GfxTexture(str);
+			auto tex = GfxTexture(pic);
 			scope(exit)
 				sysReference(&tex, null);
 
@@ -115,8 +115,7 @@ public:
 			w.update(tex);
 
 		} catch (Exception e) {
-			l.warn("Failed to load: %s", str);
-			l.warn(e.toString);
+			l.warn("%s", e.toString());
 		}
 
 		curSkin = null;

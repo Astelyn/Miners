@@ -1,5 +1,8 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for Mover helpers.
+ */
 module charge.game.movers;
 
 import charge.math.movable;
@@ -22,6 +25,16 @@ public:
 	this(Movable m)
 	{
 		this.m = m;
+	}
+
+	~this()
+	{
+		assert(m is null);
+	}
+
+	void breakApart()
+	{
+		m = null;
 	}
 
 	abstract void tick();

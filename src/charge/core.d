@@ -1,10 +1,16 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file containing Core and CoreOptions.
+ */
 module charge.core;
 
-import charge.sys.properties;
+import charge.util.properties;
 
 
+/**
+ * Enum for selecting subsystems.
+ */
 enum coreFlag
 {
 	CTL  = (1 << 0),
@@ -25,7 +31,6 @@ extern(C) Core chargeCore(CoreOptions opts);
  * a quit event on the event queue and then returns.
  */
 extern(C) void chargeQuit();
-
 
 /**
  * Options at initialization.
@@ -66,6 +71,10 @@ protected:
 	static void function()[] closeFuncs;
 
 
+private:
+	static Core instance;
+
+
 public:
 	static Core opCall()
 	{
@@ -81,8 +90,7 @@ public:
 		assert(opts.title !is null);
 	}
 	body {
-		instance = chargeCore(opts);
-		return instance;
+		return chargeCore(opts);
 	}
 
 	/**
@@ -115,6 +123,12 @@ public:
 			closeFuncs ~= close;
 	}
 
+	/**
+	 * Display a panic message, usually a dialogue box, then
+	 * calls exit(-1), so this function does not return.
+	 */
+	abstract void panic(string message);
+
 
 	/*
 	 *
@@ -136,12 +150,11 @@ public:
 
 	abstract Properties properties();
 
+
 protected:
 	this(coreFlag flags)
 	{
 		this.flags = flags;
+		instance = this;
 	}
-
-private:
-	static Core instance;
 }

@@ -1,5 +1,8 @@
 // Copyright © 2012, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for MenuRunner.
+ */
 module charge.game.menu;
 
 static import charge.sys.logger;
@@ -18,7 +21,7 @@ import charge.game.gui.container : TextureContainer;
 import charge.game.gui.input : InputHandler;
 
 alias charge.sys.logger.Logging SysLogging;
-alias charge.sys.resource.Resource.reference sysReference;
+alias charge.sys.resource.reference reference;
 
 
 /**
@@ -62,7 +65,7 @@ public:
 		assert(menu is null);
 		delete ih;
 
-		sysReference(&menuTexture, null);
+		reference(&menuTexture, null);
 	}
 
 	void close()
@@ -72,12 +75,12 @@ public:
 			menu = null;
 		}
 
-		sysReference(&menuTexture, null);
+		reference(&menuTexture, null);
 	}
 
 	void setMenu(TextureContainer newMenu)
 	{
-		sysReference(&menuTexture, null);
+		reference(&menuTexture, null);
 		if (menu !is null)
 			menu.breakApart();
 
@@ -88,10 +91,6 @@ public:
 			return;
 
 		menu.repaintDg = &triggerRepaint;
-	}
-
-	void resize(uint w, uint h)
-	{
 	}
 
 	void logic()
@@ -106,7 +105,7 @@ public:
 		if (repaint || menuTexture is null) {
 			menu.paintTexture();
 
-			sysReference(&menuTexture, menu.texture);
+			reference(&menuTexture, menu.texture);
 			repaint = false;
 		}
 

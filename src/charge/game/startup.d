@@ -1,5 +1,8 @@
 // Copyright © 2012, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for StartupRunner.
+ */
 module charge.game.startup;
 
 import charge.charge;
@@ -130,11 +133,6 @@ public:
 	void dropControl()
 	{
 		keyboard.down -= &this.keyDown;
-	}
-
-	void resize(uint w, uint h)
-	{
-
 	}
 
 	bool build()

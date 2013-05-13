@@ -1,5 +1,8 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for Car.
+ */
 module charge.phy.car;
 
 import std.math : abs, fmin;
@@ -114,9 +117,10 @@ public:
 		carSlip2Limit = 0.04;
 	}
 
-	~this()
+	void breakApart()
 	{
 		w.removePostColl(this);
+		super.breakApart();
 	}
 
 	size_t getSyncDataLength()

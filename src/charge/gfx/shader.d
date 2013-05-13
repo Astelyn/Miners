@@ -1,5 +1,8 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for Shader base class.
+ */
 module charge.gfx.shader;
 
 import std.c.stdlib : alloca;
@@ -374,8 +377,11 @@ private:
 				glGetProgramInfoLog(shader, length, &length, buffer.ptr);
 			else
 				glGetShaderInfoLog(shader, length, &length, buffer.ptr);
+
 			assert(buffer.length >= length);
 			buffer.length = length;
+		} else {
+			length = 0;
 		}
 
 		switch (status) {

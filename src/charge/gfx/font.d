@@ -1,5 +1,8 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for BitmapFont.
+ */
 module charge.gfx.font;
 
 import charge.core;
@@ -12,6 +15,11 @@ import charge.gfx.draw;
 import charge.gfx.texture;
 
 
+/**
+ * Simple Bitmap font, doesn't handle UTF-8.
+ *
+ * @ingroup Resource
+ */
 class BitmapFont : Resource
 {
 public:
@@ -135,9 +143,12 @@ public:
 		glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, 0, 0);
 	}
 
-	static BitmapFont opCall(string filename)
-	{
-		auto p = Pool();
+	static BitmapFont opCall(Pool p, string filename)
+	in {
+		assert(p !is null);
+		assert(filename !is null);
+	}
+	body {
 		if (filename is null)
 			return null;
 
@@ -148,7 +159,7 @@ public:
 			return bf;
 		}
 
-		auto tex = Texture(filename);
+		auto tex = Texture(p, filename);
 		// Error reporting already taken care of.
 		if (tex is null)
 			return null;
@@ -187,7 +198,7 @@ protected:
 	~this()
 	{
 		glDeleteFramebuffersEXT(1, &fbo);
-		tex.reference(&tex, null);
+		reference(&tex, null);
 	}
 
 	void drawLayoutedText(string text, bool shaded)
@@ -283,7 +294,7 @@ private:
 	static void initFunc()
 	{
 		if (gfxLoaded)
-			defaultFont = BitmapFont("res/font.png");
+			defaultFont = BitmapFont(Pool(), "res/font.png");
 	}
 
 	static void closeFunc()

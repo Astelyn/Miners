@@ -2,6 +2,7 @@
 // See copyright notice in src/charge/charge.d (GPLv2 only).
 module miners.gfx.vbo;
 
+import charge.math.movable;
 import charge.math.frustum;
 import charge.sys.resource;
 
@@ -17,18 +18,15 @@ class ChunkVBORigidMesh : charge.gfx.vbo.RigidMeshVBO
 public:
 	static ChunkVBORigidMesh opCall(RigidMeshBuilder mb, int x, int y, int z)
 	{
-		return ChunkVBORigidMesh(Pool(), mb, x, y, z);
-	}
-
-	static ChunkVBORigidMesh opCall(Pool p, RigidMeshBuilder mb, int x, int y, int z)
-	{
-		return new ChunkVBORigidMesh(p, mb);
+		return new ChunkVBORigidMesh(mb);
 	}
 
 protected:
-	this(charge.sys.resource.Pool p, RigidMeshBuilder mb)
+	this(RigidMeshBuilder builder)
 	{
-		super(p, mb);
+		super(null, null, builder.type,
+		      builder.verts, builder.iv,
+		      builder.tris, builder.it);
 	}
 
 }
@@ -62,7 +60,7 @@ public:
 
 	static ChunkVBOCompactMesh opCall(Vertex[] verts, int x, int y, int z)
 	{
-		return new ChunkVBOCompactMesh(charge.sys.resource.Pool(), verts);
+		return new ChunkVBOCompactMesh(verts);
 	}
 
 	void update(Vertex[] verts)
@@ -72,9 +70,9 @@ public:
 	}
 
 protected:
-	this(charge.sys.resource.Pool p, Vertex[] verts)
+	this(Vertex[] verts)
 	{
-		super(p, null);
+		super(null, null);
 
 		update(verts);
 
@@ -121,19 +119,25 @@ public:
 		GfxVBO vbo;
 	};
 
-	this(GfxWorld w) {
+	this(GfxWorld w)
+	{
 		super(w);
 		pos = Point3d();
 		rot = Quatd();
-		m = GfxMaterialManager.getDefault();
+		m = GfxMaterialManager.getDefault(w.pool);
 	}
 
 	~this()
 	{
-		delete m;
-		m = null;
-		delete array;
+		assert(m is null);
+	}
+
+	void breakApart()
+	{
+        delete array;
 		delete resultVbo;
+		breakApartAndNull(m);
+		super.breakApart();
 	}
 
 	GfxMaterial getMaterial()
@@ -198,16 +202,6 @@ public:
 		super(w);
 	}
 
-	void drawFixed()
-	{
-		gluPushAndTransform(pos, rot);
-
-		ChunkVBORigidMesh.drawArrayFixed(
-			cast(ChunkVBORigidMesh[])resultVbo[0 .. result_num]);
-
-		glPopMatrix();
-	}
-
 	void drawAttrib(GfxShader s)
 	{
 		gluPushAndTransform(pos, rot);
@@ -229,11 +223,6 @@ public:
 	this(GfxWorld w)
 	{
 		super(w);
-	}
-
-	void drawFixed()
-	{
-
 	}
 
 	void drawAttrib(GfxShader s)

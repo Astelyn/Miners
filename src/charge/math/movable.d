@@ -1,5 +1,8 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for Movable.
+ */
 module charge.math.movable;
 
 public import charge.math.point3d;
@@ -7,7 +10,9 @@ public import charge.math.quatd;
 
 
 /**
- * Base class for all movable objects
+ * Base class for all movable objects.
+ *
+ * @ingroup Math
  */
 class Movable
 {
@@ -60,5 +65,18 @@ public:
 	{
 		dirty = true;
 		this.rot = rot;
+	}
+}
+
+/**
+ * Helper function to for nulling and breaking apart actor like objects.
+ * A common pattern in Charge is to breakApart a object/actor instead of
+ * deleting it, to avoid memory corruption.
+ */
+void breakApartAndNull(T)(ref T t)
+{
+	if (t !is null) {
+		t.breakApart();
+		t = null;
 	}
 }

@@ -116,8 +116,25 @@ public:
 
 	~this()
 	{
-		unbuildAll();
+		assert(blocks is null);
+		assert(data is null);
+		assert(gfx is null);
+		assert(dirty is null);
+		assert(vbos is null);
+	}
+
+	void breakApart()
+	{
+		if (vbos !is null)
+			unbuildAll();
+
+		blocks = data = null;
+		gfx = null;
+		dirty = null;
+		vbos = null;
 		store.free();
+
+		super.breakApart();
 	}
 
 

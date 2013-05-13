@@ -2,11 +2,14 @@
 // See copyright notice in src/charge/charge.d (GPLv2 only).
 module miners.startup;
 
+import std.string : format;
 import std.math : fmax, fmin;
 import std.file : write;
 
 import charge.charge;
 import charge.math.ints : imax, imin;
+import charge.util.png : pngDecode;
+import charge.util.memory : cFree;
 
 import charge.platform.homefolder;
 static import charge.game.startup;
@@ -16,6 +19,7 @@ import miners.logo;
 import miners.types;
 import miners.runner;
 import miners.options;
+import miners.defines;
 import miners.interfaces;
 import miners.gfx.font;
 import miners.classic.data;
@@ -119,7 +123,12 @@ class CreateLogo : OptionsTask
 
 	bool build()
 	{
-		auto tex = GfxTexture("background.png");
+		auto p = SysPool();
+		p.suppress404 = true;
+		scope(exit)
+			p.suppress404 = false;
+
+		auto tex = GfxTexture(p, "background.png");
 		if (tex !is null) {
 			setBackground(tex);
 			sysReference(&tex, null);
@@ -191,11 +200,18 @@ class OptionsLoader : OptionsTask
 		fov = imax(40, fov);
 		fov = imin(fov, 120);
 
+		int uiSize = p.getIfNotFoundSet(opts.uiSizeName, opts.uiSizeDefault);
+		uiSize = imax(1, uiSize);
+		uiSize = imin(uiSize, 4);
+
 		// First init options
 		opts.aa = p.getIfNotFoundSet(opts.aaName, opts.aaDefault);
 		opts.fov = fov;
 		opts.fog = p.getIfNotFoundSet(opts.fogName, opts.fogDefault);
 		opts.shadow = p.getIfNotFoundSet(opts.shadowName, opts.shadowDefault);
+		opts.uiSize = uiSize;
+		opts.speedRun = p.getIfNotFoundSet(opts.speedRunName, opts.speedRunDefault);
+		opts.speedWalk = p.getIfNotFoundSet(opts.speedWalkName, opts.speedWalkDefault);
 		opts.lastMcUrl = p.getIfNotFoundSet(
 				opts.lastMcUrlName, opts.lastMcUrlDefault);
 		opts.useCmdPrefix = p.getIfNotFoundSet(
@@ -287,7 +303,7 @@ public:
 		GfxTexture defSkin;
 
 		try {
-			defSkin = GfxTexture(filename);
+			defSkin = GfxTexture(SysPool(), filename);
 		} catch (Exception e) {
 			signalError(["Could not load default skin", e.toString]);
 			return false;
@@ -304,7 +320,7 @@ public:
 
 		signalDone();
 
-		nextTask(new LoadModernTexture(startup, opts));
+		nextTask(new LoadDefaultClassicTerrain(startup, opts));
 
 		return true;
 	}
@@ -340,6 +356,99 @@ public:
 }
 
 /**
+ * Loads and downloads the default classic terrain.
+ */
+class LoadDefaultClassicTerrain : OptionsTask, NetDownloadListener
+{
+public:
+	const string path = "/releases/terrain.default.png";
+	const string hostname = "cm-cdn.fcraft.net";
+	const ushort port = 80;
+
+
+private:
+	NetDownloadConnection dl;
+
+	mixin SysLogging;
+
+
+public:
+	this(StartupRunner startup, Options opts)
+	{
+		text = "Loading default terrain";
+		super(startup, opts);
+	}
+
+	void close()
+	{
+		if (dl !is null) {
+			dl.close();
+			dl = null;
+		}
+	}
+
+	bool build()
+	{
+		if (dl !is null) {
+			dl.doTick();
+			return false;
+		}
+
+		Picture defTerrain;
+
+		try {
+			defTerrain = Picture(SysPool(), defaultClassicTerrainTexture);
+		} catch (Exception e) {
+			signalError(["Could not load default terrain", e.toString]);
+			return false;
+		}
+
+		if (defTerrain is null) {
+			dl = new NetDownloadConnection(this, hostname, port);
+			return true;
+		}
+
+		opts.defaultClassicTerrain = defTerrain;
+		sysReference(&defTerrain, null);
+
+		signalDone();
+
+		nextTask(new LoadModernTexture(startup, opts));
+
+		return true;
+	}
+
+	void connected()
+	{
+		dl.getDownload(path);
+	}
+
+	void percentage(int p)
+	{
+		completed = p;
+	}
+
+	void downloaded(void[] data)
+	{
+		l.warn("D %s", data.length);
+
+		write(defaultClassicTerrainTexture, data);
+		dl.close();
+		dl = null;
+	}
+
+	void error(Exception e)
+	{
+		signalError(["Could not download default terrain", e.toString]);
+	}
+
+	void disconnected()
+	{
+		signalError(["Got disconnected when downloading default terrain"]);
+	}
+}
+
+/**
  * Loads the terrain texture.
  */
 class LoadModernTexture : OptionsTask
@@ -356,12 +465,20 @@ class LoadModernTexture : OptionsTask
 
 	bool build()
 	{
-		auto pic = getModernTerrainTexture();
+		auto p = SysPool();
+		p.suppress404 = true;
+		scope(exit)
+			p.suppress404 = false;
+
+		if (opts.borrowedModernTerrainPic() is null)
+			borrowModernTerrainTexture();
+
+		auto pic = getModernTerrainTexture(p);
 		if (pic is null) {
-			signalError(["Could not load terrain.png"]);
-			return false;
-		} else {
-			l.info("Found terrain.png please ignore above warnings");
+			l.info("Found no modern terrain.png, trying to load classic ones.");
+			signalDone();
+			nextTask(new LoadClassicTexture(startup, opts));
+			return true;
 		}
 
 		// Do the manipulation of the texture to fit us
@@ -376,6 +493,34 @@ class LoadModernTexture : OptionsTask
 		nextTask(new LoadClassicTexture(startup, opts));
 
 		return true;
+	}
+
+	/**
+	 * Borrow the modern terrain.png form minecraft.jar.
+	 */
+	void borrowModernTerrainTexture()
+	{
+		// Try and load the terrain png file from minecraft.jar.
+		try {
+			auto data = extractModernMinecraftTexture();
+			scope(exit)
+				cFree(data.ptr);
+
+			auto img = pngDecode(data, true);
+			scope(exit)
+				delete img;
+
+			auto pic = Picture(SysPool(), borrowedModernTerrainTexture, img);
+			scope(exit)
+				sysReference(&pic, null);
+
+			opts.borrowedModernTerrainPic = pic;
+			l.info("Found terrain.png in minecraft.jar, might use it.");
+		} catch (Exception e) {
+			l.info("Could not extract terrain.png from minecraft.jar because:");
+			l.info(e.classinfo.name, " ", e);
+			return;
+		}
 	}
 }
 
@@ -396,13 +541,34 @@ class LoadClassicTexture : OptionsTask
 
 	bool build()
 	{
+		auto p = SysPool();
+		p.suppress404 = true;
+		scope(exit)
+			p.suppress404 = false;
+
+		if (opts.borrowedClassicTerrainPic() is null)
+			borrowClassicTerrainTexture();
+
 		// Get a texture that works with classic
-		auto pic = getClassicTerrainTexture();
+		auto pic = getClassicTerrainTexture(p);
 		if (pic is null) {
-			// Copy and manipulate
-			pic = Picture(null, opts.modernTerrainPic());
-			manipulateTextureClassic(pic);
+			sysReference(&pic, opts.defaultClassicTerrain());
 		}
+
+		if (pic is null) {
+			if (opts.modernTerrainPic() is null) {
+					auto text = format(terrainNotFoundText, chargeConfigFolder);
+					signalError([text]);
+					return false;
+			}
+
+			// Copy and manipulate
+			pic = Picture(opts.modernTerrainPic());
+			manipulateTextureClassic(pic);
+
+			l.info("Using a modified modern terrain.png for classic terrain.");
+		}
+
 		opts.classicTerrainPic = pic;
 		opts.classicTextures = createTextures(pic, opts.rendererBuildIndexed);
 
@@ -413,6 +579,42 @@ class LoadClassicTexture : OptionsTask
 
 		return true;
 	}
+
+	/**
+	 * Borrow the modern terrain.png form minecraft.jar.
+	 */
+	void borrowClassicTerrainTexture()
+	{
+		// Try and load the terrain png file from minecraft.jar.
+		try {
+			auto data = extractClassicMinecraftTexture();
+			scope(exit)
+				cFree(data.ptr);
+
+			auto img = pngDecode(data, true);
+			scope(exit)
+				delete img;
+
+			auto pic = Picture(SysPool(), borrowedClassicTerrainTexture, img);
+			scope(exit)
+				sysReference(&pic, null);
+
+			opts.borrowedClassicTerrainPic = pic;
+			l.info("Found terrain.png in minecraft.jar, might use it.");
+		} catch (Exception e) {
+			l.info("Could not extract terrain.png from minecraft.jar because:");
+			l.info(e.classinfo.name, " ", e);
+			return;
+		}
+	}
+
+	const string terrainNotFoundText =
+`Could not find terrain.png! You have a couple of options, easiest is just to
+install Minecraft and Charged Miners will get it from there. Another option is
+to get one from a texture pack and place it in either the working directory of
+the executable. Or in the Charged Miners config folder located here:
+
+%s`;
 }
 
 /**
@@ -442,7 +644,7 @@ class LoadClassicIcons : OptionsTask
 			int x = index % 16;
 			int y = index / 16;
 
-			auto texPic = getTileAsSeperate(pic, null, x, y);
+			auto texPic = getTileAsSeperate(pic, x, y);
 
 			// XXX Hack for half slabs
 			if (i == 44) {
@@ -451,7 +653,7 @@ class LoadClassicIcons : OptionsTask
 				d[0 .. $ / 2] = Color4b(0, 0, 0, 0);
 			}
 
-			auto tex = GfxTexture(null, texPic);
+			auto tex = GfxTexture(texPic);
 			tex.filter = GfxTexture.Filter.NearestLinear;
 
 			sysReference(&outTex, tex);
@@ -474,6 +676,19 @@ class LoadClassicFont : OptionsTask
 {
 	int pos;
 
+	static class ClassicFontHandler
+	{
+		Options opts;
+
+		final void newUiSize(int size)
+		{
+			// Install the classic font.
+			auto cf = ClassicFont(SysPool(), "res/font.png", opts.uiSize());
+			opts.classicFont = cf;
+			sysReference(&cf, null);
+		}
+	}
+
 	this(StartupRunner startup, Options opts)
 	{
 		text = "Loading Classic Font";
@@ -484,10 +699,12 @@ class LoadClassicFont : OptionsTask
 
 	bool build()
 	{
+		auto cfh = new ClassicFontHandler();
+		cfh.opts = opts;
+		cfh.newUiSize(opts.uiSize());
+
 		// Install the classic font handler.
-		auto cf = ClassicFont("res/font.png");
-		opts.classicFont = cf;
-		sysReference(&cf, null);
+		opts.uiSize ~= &cfh.newUiSize;
 
 		signalDone();
 
@@ -512,8 +729,13 @@ class CreateTiledBackground : OptionsTask
 
 	bool build()
 	{
+		auto p = SysPool();
+		p.suppress404 = true;
+		scope(exit)
+			p.suppress404 = false;
+
 		// See if the user has overridden the background.
-		auto tex = GfxTexture("background.tiled.png");
+		auto tex = GfxTexture(p, "background.tiled.png");
 		if (tex !is null) {
 			setBackground(tex, true);
 			sysReference(&tex, null);
@@ -521,7 +743,7 @@ class CreateTiledBackground : OptionsTask
 		}
 
 		// Try the other one as well.
-		tex = GfxTexture("background.png");
+		tex = GfxTexture(p, "background.png");
 		if (tex !is null) {
 			setBackground(tex, false);
 			sysReference(&tex, null);
@@ -663,6 +885,12 @@ public:
 	void serverList(ClassicServerInfo[] csis)
 	{
 		shutdownConnection();
+
+		if (csis.length == 0)
+			return signalError([
+				"Did not get any servers from server list!",
+				"Probably failed to parse the list.",
+				"Or you didn't supply the correct PLAY_SESSION cookie."]);
 
 		opts.classicServerList = csis;
 		signalDone();

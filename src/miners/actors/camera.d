@@ -5,7 +5,6 @@ module miners.actors.camera;
 import charge.charge;
 
 import miners.world;
-import miners.actors.sunlight;
 
 
 class Camera : GameActor
@@ -85,12 +84,21 @@ public:
 
 	~this()
 	{
-		auto w = cast(World)w;
-		w.opts.fov -= &fov;
-		w.opts.viewDistance -= &far;
+		assert(pcam is null);
+		assert(icam is null);
+	}
 
-		delete icam;
-		delete pcam;
+	void breakApart()
+	{
+		auto w = cast(World)w;
+		if (w !is null) {
+			w.opts.fov -= &fov;
+			w.opts.viewDistance -= &far;
+		}
+
+		breakApartAndNull(icam);
+		breakApartAndNull(pcam);
+		super.breakApart();
 	}
 
 	void resize(uint width, uint height)

@@ -2,7 +2,8 @@
 // See copyright notice in src/charge/charge.d (GPLv2 only).
 module miners.classic.connection;
 
-import std.socket : Socket, SocketFlags, TcpSocket, SocketShutdown, InternetAddress;
+import std.socket : Socket, SocketFlags, SocketOption, SocketOptionLevel,
+                    TcpSocket, SocketShutdown, InternetAddress;
 import std.string : format;
 import std.zlib : ZlibException;
 import etc.c.zlib : z_stream, inflate, inflateInit2, inflateEnd,
@@ -35,6 +36,8 @@ public:
 
 
 private:
+	mixin SysLogging;
+
 	// Server details
 	string hostname;
 	ushort port;
@@ -49,7 +52,7 @@ private:
 	ubyte[] inData;
 
 	/// Receiver of packages
-	ClientListener l;
+	ClientListener cl;
 
 	/// Receiver of messages.
 	ClientMessageListener ml;
@@ -63,9 +66,9 @@ private:
 	TcpSocket s;
 
 public:
-	this(ClientListener l, ClientMessageListener ml, ClassicServerInfo csi)
+	this(ClientListener cl, ClientMessageListener ml, ClassicServerInfo csi)
 	{
-		this.l = l;
+		this.cl = cl;
 		this.ml = ml;
 
 		this.hostname = csi.hostname;
@@ -83,7 +86,7 @@ public:
 
 	void setListener(ClientListener l)
 	{
-		this.l = l;
+		this.cl = l;
 	}
 
 	void setMessageListener(ClientMessageListener ml)
@@ -192,11 +195,11 @@ public:
 		sendPacket!(cm)(s);
 	}
 
-    void sendPing()
-    {
-        ubyte b;
-        s.send((&b)[0 .. 1]);
-    }
+	void sendPing()
+	{
+		ubyte b = 0x01;
+		s.send((&b)[0 .. 1]);
+	}
 
 protected:
 	/*
@@ -218,7 +221,7 @@ protected:
 
 		setPlayerType(type);
 
-		l.indentification(ver, name, motd, type);
+		cl.indentification(ver, name, motd, type);
 	}
 
 	/*
@@ -237,7 +240,7 @@ protected:
 
 		inData ~= sldc.data[0 .. len];
 
-		l.levelLoadUpdate(sldc.percent);
+		cl.levelLoadUpdate(sldc.percent);
 	}
 
 	/**
@@ -295,7 +298,7 @@ protected:
 		// Skip the size in the begining
 		auto d = decomp[4 .. $];
 
-		l.levelFinalize(xSize, ySize, zSize, d);
+		cl.levelFinalize(xSize, ySize, zSize, d);
 	}
 
 	/**
@@ -308,8 +311,8 @@ protected:
 		short z = ntoh(ssb.z);
 		ubyte type = ssb.type;
 
-		if (l !is null)
-			l.setBlock(x, y, z, type);
+		if (cl !is null)
+			cl.setBlock(x, y, z, type);
 	}
 
 	/**
@@ -325,8 +328,8 @@ protected:
 		double heading, pitch;
 		fromYawPitch(sps.yaw, sps.pitch, heading, pitch);
 
-		if (l !is null)
-			l.playerSpawn(id, name, x, y, z, heading, pitch);
+		if (cl !is null)
+			cl.playerSpawn(id, name, x, y, z, heading, pitch);
 		if (ml !is null)
 			ml.addPlayer(id, name);
 	}
@@ -343,8 +346,8 @@ protected:
 		double heading, pitch;
 		fromYawPitch(spt.yaw, spt.pitch, heading, pitch);
 
-		if (l !is null)
-			l.playerMoveTo(id, x, y, z, heading, pitch);
+		if (cl !is null)
+			cl.playerMoveTo(id, x, y, z, heading, pitch);
 	}
 
 	/**
@@ -359,8 +362,8 @@ protected:
 		double heading, pitch;
 		fromYawPitch(spupo.yaw, spupo.pitch, heading, pitch);
 
-		if (l !is null)
-			l.playerMove(id, x, y, z, heading, pitch);
+		if (cl !is null)
+			cl.playerMove(id, x, y, z, heading, pitch);
 	}
 
 	/**
@@ -373,8 +376,8 @@ protected:
 		double y = spup.y / 32.0;
 		double z = spup.z / 32.0;
 
-		if (l !is null)
-			l.playerMove(id, x, y, z);
+		if (cl !is null)
+			cl.playerMove(id, x, y, z);
 	}
 
 	/**
@@ -386,8 +389,8 @@ protected:
 		double heading, pitch;
 		fromYawPitch(spuo.yaw, spuo.pitch, heading, pitch);
 
-		if (l !is null)
-			l.playerMove(id, heading, pitch);
+		if (cl !is null)
+			cl.playerMove(id, heading, pitch);
 	}
 
 	/**
@@ -397,8 +400,8 @@ protected:
 	{
 		auto id = spd.playerId;
 
-		if (l !is null)
-			l.playerDespawn(id);
+		if (cl !is null)
+			cl.playerDespawn(id);
 		if (ml !is null)
 			ml.removePlayer(id);
 	}
@@ -422,7 +425,7 @@ protected:
 	{
 		string reason = removeTrailingSpaces(sd.reason);
 
-		l.disconnect(reason);
+		cl.disconnect(reason);
 	}
 
 	/**
@@ -434,60 +437,59 @@ protected:
 
 		setPlayerType(type);
 
-		l.playerType(type);
+		cl.playerType(type);
 	}
 
 	void packet(ubyte *pkg)
 	{
 		switch(*pkg) {
-		case 0x00:
+		case ServerIdentification.constId:
 			serverIdentification(&packets.identification);
 			break;
-		case 0x01:
-			if (l !is null)
-				l.ping();
+		case ServerPing.constId:
+			if (cl !is null)
+				cl.ping();
 			break;
-		case 0x02:
-			if (l !is null)
-				l.levelInitialize();
+		case ServerLevelInitialize.constId:
+			if (cl !is null)
+				cl.levelInitialize();
 			if (ml !is null)
 				ml.removeAllPlayers();
 			break;
-		case 0x03:
+		case ServerLevelDataChunk.constId:
 			levelDataChunk(&packets.levelDataChunk);
 			break;
-		case 0x04:
+		case ServerLevelFinalize.constId:
 			levelFinalize(&packets.levelFinalize);
 			break;
-		//se 0x05: // Ignore
-		case 0x06:
+		case ServerSetBlock.constId:
 			setBlock(&packets.setBlock);
 			break;
-		case 0x07:
+		case ServerPlayerSpawn.constId:
 			playerSpawn(&packets.playerSpawn);
 			break;
-		case 0x08:
+		case ServerPlayerTeleport.constId:
 			playerTeleport(&packets.playerTeleport);
 			break;
-		case 0x09:
+		case ServerPlayerUpdatePosOri.constId:
 			playerUpdatePosOri(&packets.playerUpdatePosOri);
 			break;
-		case 0x0a:
+		case ServerPlayerUpdatePos.constId:
 			playerUpdatePos(&packets.playerUpdatePos);
 			break;
-		case 0x0b:
+		case ServerPlayerUpdateOri.constId:
 			playerUpdateOri(&packets.playerUpdateOri);
 			break;
-		case 0x0c:
+		case ServerPlayerDespawn.constId:
 			playerDespawn(&packets.playerDespawn);
 			break;
-		case 0x0d:
+		case ServerMessage.constId:
 			message(&packets.message);
 			break;
-		case 0x0e:
+		case ServerDisconnect.constId:
 			disconnect(&packets.disconnect);
 			break;
-		case 0x0f:
+		case ServerUpdateType.constId:
 			updateType(&packets.updateType);
 			break;
 		default: // Error 
@@ -563,10 +565,11 @@ protected:
 		try {
 			s = new TcpSocket(a);
 			s.blocking = false;
+			s.setOption(SocketOptionLevel.TCP, SocketOption.TCP_NODELAY, 1);
 			sendClientIdentification(username, verificationKey);
 			return true;
 		} catch (Exception e) {
-			l.disconnect(e.toString);
+			cl.disconnect(e.toString);
 			return false;
 		}
 	}

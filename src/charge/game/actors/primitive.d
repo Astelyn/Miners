@@ -2,8 +2,9 @@
 // See copyright notice in src/charge/charge.d (GPLv2 only).
 module charge.game.actors.primitive;
 
-import charge.math.point3d;
 import charge.math.quatd;
+import charge.math.movable;
+import charge.math.point3d;
 
 static import charge.gfx.cube;
 static import charge.gfx.rigidmodel;
@@ -28,15 +29,21 @@ public:
 		w.addTicker(this);
 
 		gfx = new charge.gfx.cube.Cube(w.gfx);
-		phy = new charge.phy.cube.Cube(w.phy, Point3d(0.0, 1.0, 0.0));
-
+		phy = new charge.phy.cube.Cube(w.phy);
 	}
 
 	~this()
 	{
+		assert(gfx is null);
+		assert(phy is null);
+	}
+
+	void breakApart()
+	{
 		w.remTicker(this);
-		delete phy;
-		delete gfx;
+		breakApartAndNull(gfx);
+		breakApartAndNull(phy);
+		super.breakApart();
 	}
 
 	void tick()
@@ -45,6 +52,10 @@ public:
 		gfx.rotation = phy.rotation;
 	}
 
+	void setPosition(ref Point3d pos) { phy.setPosition(pos); gfx.setPosition(pos); }
+	void getPosition(out Point3d pos) { phy.getPosition(pos); }
+	void setRotation(ref Quatd rot) { phy.setRotation(rot); gfx.setRotation(rot); }
+	void getRotation(out Quatd rot) { phy.getRotation(rot); }
 }
 
 class StaticCube : Actor
@@ -74,10 +85,16 @@ public:
 
 	~this()
 	{
-		delete gfx;
-		delete phy;
+		assert(gfx is null);
+		assert(phy is null);
 	}
 
+	void breakApart()
+	{
+		breakApartAndNull(gfx);
+		breakApartAndNull(phy);
+		super.breakApart();
+	}
 }
 
 class StaticRigid : Actor
@@ -95,15 +112,21 @@ public:
 		gfx.position = pos;
 		gfx.rotation = rot;
 
-		phy = new charge.phy.actor.Static(w.phy, new charge.phy.geom.GeomMesh(phyModel));
+		phy = new charge.phy.actor.Static(w.phy, new charge.phy.geom.GeomMesh(w.phy.pool, phyModel));
 		phy.position = pos;
 		phy.rotation = rot;
 	}
 
 	~this()
 	{
-		delete gfx;
-		delete phy;
+		assert(gfx is null);
+		assert(phy is null);
 	}
 
+	void breakApart()
+	{
+		breakApartAndNull(gfx);
+		breakApartAndNull(phy);
+		super.breakApart();
+	}
 }

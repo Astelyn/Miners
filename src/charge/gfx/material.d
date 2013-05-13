@@ -1,5 +1,8 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for Material.
+ */
 module charge.gfx.material;
 
 import std.regexp : RegExp;
@@ -15,6 +18,8 @@ import charge.gfx.shader;
 import charge.gfx.light;
 import charge.gfx.texture;
 import charge.gfx.renderqueue;
+
+import charge.sys.resource : Pool, reference;
 
 
 struct MaterialProperty
@@ -32,6 +37,16 @@ struct MaterialProperty
 class Material
 {
 public:
+	Pool pool;
+
+public:
+	this(Pool p)
+	{
+		this.pool = p;
+	}
+
+	abstract void breakApart();
+
 	final bool opIndexAssign(string tex, string name)
 	{
 		return setTexture(name, tex);
@@ -65,10 +80,10 @@ public:
 		Texture tex;
 
 		if (filename !is null)
-			tex = Texture(filename);
+			tex = Texture(pool, filename);
 
 		auto ret = setTexture(name, tex);
-		tex.reference(&tex, null);
+		reference(&tex, null);
 
 		return ret;
 	}
@@ -117,7 +132,6 @@ public:
 	{
 		return [];
 	}
-
 }
 
 class SimpleMaterial : Material
@@ -130,18 +144,26 @@ public:
 	bool stipple;
 	bool skel; /**< This is here temporary */
 
-	this()
+public:
+	this(Pool p)
 	{
-		color = Color4f.White;
+		super(p);
+		this.color = Color4f.White;
 
-		texSafe = ColorTexture(color);
+		texSafe = ColorTexture(pool, color);
 
 		assert(texSafe !is null);
 	}
 
 	~this()
 	{
-		texSafe.reference(&texSafe, null);
+		assert(tex is null);
+		assert(texSafe is null);
+	}
+
+	void breakApart()
+	{
+		reference(&texSafe, null);
 		// Does not hold a reference
 		tex = null;
 	}
@@ -168,11 +190,11 @@ public:
 				tex = texture;
 
 				// Update the safe texture
-				texSafe.reference(&texSafe, tex);
+				reference(&texSafe, tex);
 
 				// Must always be safe to access, set to color
 				if (texSafe is null)
-					texSafe = ColorTexture(color);
+					texSafe = ColorTexture(pool, color);
 				break;
 			default:
 				return false;
@@ -298,12 +320,12 @@ private:
 
 public:
 
-	static Material getDefault()
+	static Material getDefault(Pool p)
 	{
-		return new SimpleMaterial();
+		return new SimpleMaterial(p);
 	}
 
-	static Material opCall(string filename)
+	static Material opCall(Pool p, string filename)
 	{
 		Element f;
 
@@ -314,7 +336,7 @@ public:
 			return null;
 		}
 
-		auto m = new SimpleMaterial();
+		auto m = new SimpleMaterial(p);
 
 		try {
 			process(m, Handle(f));
@@ -414,5 +436,4 @@ public:
 		}
 		return true;
 	}
-
 }

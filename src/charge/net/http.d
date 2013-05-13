@@ -1,5 +1,8 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for http connections.
+ */
 module charge.net.http;
 
 import std.string : find, format;
@@ -10,7 +13,7 @@ import std.socket : TcpSocket, SocketSet, SocketShutdown,
                     Address, InternetAddress, timeval;
 import uri = std.uri;
 
-import std.c.string;
+import std.c.string : memset;
 
 import charge.sys.logger;
 import charge.net.threaded;

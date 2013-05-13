@@ -1,11 +1,15 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for Text component.
+ */
 module charge.game.gui.text;
 
 import charge.math.color;
 import charge.gfx.font;
 import charge.gfx.draw;
 import charge.gfx.texture;
+import charge.sys.resource : reference;
 
 import charge.game.gui.component;
 import charge.game.gui.container;
@@ -61,12 +65,12 @@ public:
 
 	void makeResources()
 	{
-		bf.reference(&bf, BitmapFont.defaultFont);
+		reference(&bf, BitmapFont.defaultFont);
 	}
 
 	void releaseResources()
 	{
-		bf.reference(&bf, null);
+		reference(&bf, null);
 	}
 }
 

@@ -1,5 +1,8 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for SimpleSkeleton.
+ */
 module charge.gfx.skeleton;
 
 import charge.util.memory;
@@ -8,6 +11,7 @@ import charge.util.vector;
 import charge.math.quatd;
 import charge.math.point3d;
 import charge.math.vector3d;
+import charge.math.movable;
 
 import charge.sys.logger;
 import charge.sys.resource;
@@ -66,18 +70,25 @@ public:
 	{
 		super(w);
 
-		vbo.reference(&this.vbo, vbo);
+		reference(&this.vbo, vbo);
 
 		this.bones.allocCopy(bones);
-		this.m = MaterialManager.getDefault();
+		this.m = MaterialManager.getDefault(w.pool);
 		(cast(SimpleMaterial)this.m).skel = true;
 	}
 
 	~this()
 	{
-		delete m;
-		vbo.reference(&vbo, null);
+		assert(m is null);
+		assert(vbo is null);
+	}
+
+	void breakApart()
+	{
+		breakApartAndNull(m);
+		reference(&vbo, null);
 		bones.free();
+		super.breakApart();
 	}
 
 	void cullAndPush(Cull cull, RenderQueue rq)
@@ -89,10 +100,6 @@ public:
 	Material getMaterial()
 	{
 		return m;
-	}
-
-	void drawFixed()
-	{
 	}
 
 	void drawAttrib(Shader s)
@@ -114,6 +121,11 @@ public:
 		glPopMatrix();
 	}
 
+	/**
+	 * SimpleSkeleton mesh vbo.
+	 *
+	 * @ingroup Resource
+	 */
 	static class VBO : charge.gfx.vbo.VBO
 	{
 	protected:
@@ -124,12 +136,12 @@ public:
 	public:
 		static VBO opCall(Vertex verts[])
 		{
-			return new VBO(Pool(), verts);
+			return new VBO(verts);
 		}
 
-		this(Pool p, Vertex verts[])
+		this(Vertex verts[])
 		{
-			super(p, null);
+			super(null, null);
 
 			update(verts.ptr, verts.length * Vertex.sizeof,
 			       cast(uint)verts.length, null, 0, 0);

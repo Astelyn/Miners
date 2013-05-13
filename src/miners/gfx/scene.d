@@ -25,7 +25,7 @@ protected:
 	this(Options opts)
 	{
 		this.opts = opts;
-		this.world = new GfxWorld();
+		this.world = new GfxWorld(SysPool());
 		this.renderer = new GfxForwardRenderer();
 	}
 
@@ -37,11 +37,11 @@ protected:
 		assert(renderer is null);
 	}
 
-	void close()
+	void breakApart()
 	{
 		releaseResources();
 
-		delete world;
+		breakApartAndNull(world);
 		delete renderer;
 	}
 
@@ -62,7 +62,7 @@ protected:
 			renderer.target = null;
 			sysReference(&texture, null);
 
-			texture = target = GfxTextureTarget(null, w, h);
+			texture = target = GfxTextureTarget(w, h);
 		}
 	}
 }
@@ -81,13 +81,11 @@ public:
 		super(opts);
 		this.camera = new GfxProjCamera();
 		this.fog = new GfxFog();
-		this.light = new GfxSimpleLight();
+		this.light = new GfxSimpleLight(world);
 
 		fog.color = Color4f(Color4b(0xaacbffff));
 		fog.start = 128;
 		fog.stop = 1024;
-
-		world.add(light);
 		world.fog = fog;
 
 		Triangle[2] tris;
@@ -130,13 +128,13 @@ public:
 		m["color"] = Color4f(Color4b(0x80b1ffff));
 	}
 
-	void close()
+	void breakApart()
 	{
-		light = null;
+		breakApartAndNull(light);
 		camera = null;
 		fog = null;
 
-		super.close();
+		super.breakApart();
 	}
 
 	void render(GfxProjCamera origCam, GfxSimpleLight origSl,

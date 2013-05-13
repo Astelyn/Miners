@@ -1,5 +1,8 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for Cube.
+ */
 module charge.gfx.cube;
 
 import charge.math.movable;
@@ -179,14 +182,20 @@ public:
 		super(w);
 		pos = Point3d();
 		rot = Quatd();
-		m = MaterialManager.getDefault();
+		m = MaterialManager.getDefault(w.pool);
 
 		x = y = z = 1;
 	}
 
 	~this()
 	{
-		delete m;
+		assert(m is null);
+	}
+
+	void breakApart()
+	{
+		breakApartAndNull(m);
+		super.breakApart();
 	}
 
 	void setSize(double sx, double sy, double sz)
@@ -205,45 +214,6 @@ public:
 	Material getMaterial()
 	{
 		return m;
-	}
-
-	void drawFixed()
-	{
-		gluPushAndTransform(pos, rot);
-		glScaled(x, y, z);
-
-		glEnable(GL_NORMALIZE);
-		glEnableClientState(GL_VERTEX_ARRAY);
-		glVertexPointer(3, GL_FLOAT, Vertex.sizeof, &vert[0].pos[0]);
-
-		glEnableClientState(GL_NORMAL_ARRAY);
-		glNormalPointer(GL_FLOAT, Vertex.sizeof, &vert[0].normal[0]);
-
-		glClientActiveTexture(GL_TEXTURE0);
-		glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-		glTexCoordPointer(2, GL_FLOAT, Vertex.sizeof, &vert[0].uv[0]);
-
-		glClientActiveTexture(GL_TEXTURE1);
-		glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-		glTexCoordPointer(3, GL_FLOAT, Vertex.sizeof, &vert[0].tanget[0]);
-
-		glClientActiveTexture(GL_TEXTURE2);
-		glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-		glTexCoordPointer(3, GL_FLOAT, Vertex.sizeof, &vert[0].binomial[0]);
-
-		glDrawArrays(GL_QUADS, 0, 24);
-
-		glDisableClientState(GL_VERTEX_ARRAY);
-		glDisableClientState(GL_NORMAL_ARRAY);
-		glClientActiveTexture(GL_TEXTURE2);
-		glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-		glClientActiveTexture(GL_TEXTURE1);
-		glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-		glClientActiveTexture(GL_TEXTURE0);
-		glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-		glDisable(GL_NORMALIZE);
-
-		glPopMatrix();
 	}
 
 	void drawAttrib(Shader s)

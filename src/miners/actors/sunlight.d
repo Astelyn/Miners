@@ -24,8 +24,7 @@ public:
 	this(World w)
 	{
 		super(w);
-		gfx = new GfxSimpleLight();
-		w.gfx.add(gfx);
+		gfx = new GfxSimpleLight(w.gfx);
 
 		fog = new GfxFog();
 		fog.stop = w.opts.viewDistance();
@@ -43,11 +42,24 @@ public:
 
 	~this()
 	{
-		w.gfx.remove(gfx);
-		w.gfx.fog = null;
+		assert(fog is null);
+		assert(gfx is null);
+	}
 
-		delete gfx;
-		delete fog;
+	void breakApart()
+	{
+		auto w = cast(World)w;
+		if (w !is null) {
+			w.opts.fog -= &setFog;
+			w.opts.shadow -= &shadow;
+			w.opts.viewDistance -= &setViewDistance;
+
+			w.gfx.fog = null;
+		}
+
+		breakApartAndNull(fog);
+		breakApartAndNull(gfx);
+		super.breakApart();
 	}
 
 	final void shadow(bool shadow)
@@ -79,12 +91,14 @@ public:
 private:
 	void setViewDistance(double dist)
 	{
+		assert(fog !is null);
 		fog.stop = dist;
 		procent = _procent;
 	}
 
 	void setFog(bool b)
 	{
+		assert(fog !is null);
 		w.gfx.fog = b ? fog : null;
 	}
 

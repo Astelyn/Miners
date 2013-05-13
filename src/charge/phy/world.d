@@ -1,5 +1,8 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for World and PhysicsTicker.
+ */
 module charge.phy.world;
 
 import charge.util.vector;
@@ -8,6 +11,7 @@ import charge.phy.phy;
 import charge.phy.ode;
 import charge.phy.actor;
 import charge.phy.material;
+import charge.sys.resource : Pool;
 
 
 interface PhysicsTicker
@@ -17,8 +21,10 @@ interface PhysicsTicker
 
 class World
 {
-package:
+public:
+	Pool pool;
 
+package:
 	dWorldID world;
 	dSpaceID body_space;
 	dSpaceID static_space;
@@ -27,15 +33,20 @@ package:
 	uint stepLength;
 
 protected:
+	Vector!(Actor) actors;
 	Vector!(PhysicsTicker) pre;
 	Vector!(PhysicsTicker) post;
 
 public:
-
-	this()
-	{
+	this(Pool p)
+	in {
+		assert(p !is null);
+	}
+	body {
 		if (!phyLoaded)
 			throw new Exception("phy module not loaded");
+
+		this.pool = p;
 
 		world = dWorldCreate();
 		body_space = dSimpleSpaceCreate(null);
@@ -46,6 +57,32 @@ public:
 		dWorldSetCFM(world, 1e-5);
 		dWorldSetERP(world, 0.8);
 		dWorldSetQuickStepNumIterations(world, 20);
+	}
+
+	~this()
+	{
+		assert(actors.length == 0);
+		assert(world is null);
+		assert(body_space is null);
+		assert(static_space is null);
+		assert(contactgroup is null);
+	}
+
+	void breakApart()
+	{
+		Actor actor;
+		/* vector not safe to traverse while removing elements */
+		while((actor = actors[0]) !is null)
+			actor.breakApart();
+
+		dJointGroupDestroy(contactgroup);
+		dSpaceDestroy(static_space);
+		dSpaceDestroy(body_space);
+		dWorldDestroy(world);
+		contactgroup = null;
+		static_space = null;
+		body_space = null;
+		world = null;
 	}
 
 	void setStepLength(uint millis)
@@ -91,8 +128,18 @@ public:
 		post.remove(t);
 	}
 
-protected:
+package:
+	void add(Actor actor)
+	{
+		actors ~= actor;
+	}
 
+	void remove(Actor actor)
+	{
+		actors.remove(actor);
+	}
+
+protected:
 	static Actor getActor(dGeomID o)
 	{
 		dBodyID b = dGeomGetBody(o);

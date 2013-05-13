@@ -1,24 +1,10 @@
-// Copyright © 2012, Jakob Bornecrantz::  All rights reserved::
-// See copyright at the bottom of this file (GPLv2 only)::
-
+// Copyright © 2012, Jakob Bornecrantz.  All rights reserved.
+// See copyright at the bottom of this file (GPLv2 only).
 
 /*
  * These typedefs are here to work around Doxygen not understanding
  * d aliases at all.
  */
-typedef charge::math::mesh::RigidMesh RigidMesh;
-typedef charge::math::mesh::RigidMeshBuilder RigidMeshBuilder;
-typedef charge::math::picture::Picture Picture;
-typedef charge::math::movable::Movable Movable;
-typedef charge::math::vector3d::Vector3d Vector3d;
-typedef charge::math::point3d::Point3d Point3d;
-typedef charge::math::quatd::Quatd Quatd;
-typedef charge::math::color::Color4b Color4b;
-typedef charge::math::color::Color3f Color3f;
-typedef charge::math::color::Color4f Color4f;
-typedef charge::math::matrix3x3d::Matrix3x3d Matrix3x3d;
-typedef charge::math::matrix4x4d::Matrix4x4d Matrix4x4d;
-
 typedef charge::net::packet::Packet NetPacket;
 typedef charge::net::packet::RealiblePacket RealiblePacket;
 typedef charge::net::packet::UnrealiblePacket UnrealiblePacket;
@@ -101,11 +87,12 @@ typedef charge::ctl::input::Joystick CtlJoystick;
 
 typedef charge::sys::logger::Logger SysLogger;
 typedef charge::sys::logger::Logging SysLogging;
-typedef charge::sys::properties::Properties SysProperties;
 typedef charge::sys::file::File SysFile;
 typedef charge::sys::file::FileManager SysFileManager;
 typedef charge::sys::file::ZipFile SysZipFile;
-typedef charge::sys::resource::Resource::reference sysReference;
+typedef charge::sys::resource::reference sysReference;
+typedef charge::sys::resource::Pool SysPool;
+typedef charge::sys::resource::Resource SysResource;
 
 typedef charge::game::world::Ticker GameTicker;
 typedef charge::game::world::Actor GameActor;

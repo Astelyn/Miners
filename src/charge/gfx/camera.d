@@ -1,5 +1,8 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for Camera (s).
+ */
 module charge.gfx.camera;
 
 import std.math : sin, atan, asin, PI, PI_4;
@@ -23,6 +26,11 @@ public:
 		this.far = far;
 		pos = Point3d();
 		rot = Quatd();
+	}
+
+	void breakApart()
+	{
+
 	}
 
 	abstract void transform();

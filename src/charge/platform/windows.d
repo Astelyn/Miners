@@ -1,9 +1,13 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for windows specific interfaces.
+ */
 module charge.platform.windows;
 
 version(Windows):
 
+import std.string : toStringz;
 import std.c.windows.windows;
 
 
@@ -76,4 +80,10 @@ char[] getClipboardText()
 	}
 
 	return src[0 .. size].dup;
+}
+
+void panicMessage(string str)
+{
+	auto ptr = toStringz(str);
+	MessageBoxA(null, ptr, "Core Panic!", MB_OK);
 }

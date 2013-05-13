@@ -1,5 +1,8 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file containing Meshes.
+ */
 module charge.math.mesh;
 
 import charge.sys.file;
@@ -15,12 +18,10 @@ struct Vertex
 	float nx, ny, nz;
 }
 
-
 struct Triangle
 {
 	uint i1, i2, i3;
 }
-
 
 struct RigidMeshStruct
 {
@@ -42,7 +43,11 @@ struct RigidMeshStruct
 	}
 }
 
-
+/**
+ * 3D Mesh.
+ *
+ * @ingroup Resource
+ */
 class RigidMesh : Resource
 {
 public:
@@ -61,9 +66,8 @@ private:
 	Types tp;
 
 public:
-	static RigidMesh opCall(string name)
+	static RigidMesh opCall(Pool p, string name)
 	{
-		auto p = Pool();
 		auto r = p.resource(uri, name);
 		auto t = cast(RigidMesh)r;
 		if (r !is null) {
@@ -75,7 +79,7 @@ public:
 
 	static RigidMesh opCall(Vertex verts[], Triangle tris[], Types type)
 	{
-		return new RigidMesh(Pool(), null, verts, tris, type);
+		return new RigidMesh(null, null, verts, tris, type);
 	}
 
 	~this()
@@ -132,11 +136,9 @@ protected:
 		Vertex verts[];
 		Triangle tris[];
 
-		file = FileManager(filename);
-		if (file is null) {
-			l.warn("file %s not found", filename);
+		file = p.load(filename);
+		if (file is null)
 			return null;
-		}
 
 		f = file.peekMem();
 		scope(exit) delete file;

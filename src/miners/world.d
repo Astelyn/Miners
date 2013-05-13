@@ -24,13 +24,18 @@ private:
 public:
 	this(Options opts)
 	{
-		super();
+		super(SysPool());
 		this.opts = opts;
 	}
 
 	~this()
 	{
-		delete t;
-		t = null;
+		assert(t is null);
+	}
+
+	void breakApart()
+	{
+		breakApartAndNull(t);
+		super.breakApart();
 	}
 }

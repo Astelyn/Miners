@@ -123,7 +123,8 @@ public:
 		super(r, opts, w);
 
 		// Background scene.
-		bgScene = new ClassicBackgroundScene(opts);
+		if (opts.rendererBackground)
+			bgScene = new ClassicBackgroundScene(opts);
 
 		// Camera defaults
 		camHeading = 0.0;
@@ -139,7 +140,7 @@ public:
 		lightPitch = -PI/6;
 
 		sl = new SunLight(w);
-		//sl.gfx.diffuse = Color4f(200.0/255, 200.0/255, 200.0/255);
+		sl.gfx.diffuse = Color4f(200.0/255, 200.0/255, 200.0/255);
 		sl.gfx.ambient = Color4f(65.0/255, 65.0/255, 65.0/255);
 		sl.rotation = Quatd(lightHeading, lightPitch, 0);
 
@@ -206,7 +207,12 @@ public:
 		}
 
 		pp = new PlayerPhysics(&ppGetBlock);
+		pp.speedRun = opts.speedRun();
+		pp.speedWalk = opts.speedWalk();
 		opts.noClip ~= &ppNoClip;
+		opts.flying ~= &ppFlying;
+		ppNoClip(opts.noClip());
+		ppFlying(opts.flying());
 	}
 
 	this(Router r, Options opts, string filename)
@@ -247,28 +253,27 @@ public:
 
 	void close()
 	{
-		bgScene.close();
+		opts.noClip -= &ppNoClip;
+		opts.flying -= &ppFlying;
+
+		breakApartAndNull(sel);
+		breakApartAndNull(bgScene);
+		breakApartAndNull(chatGui);
+		breakApartAndNull(chatGuiSmall);
 		sysReference(&w.gfx.bg, null);
 
-		opts.noClip -= &ppNoClip;
-		opts.noClip = false; // Reset.
-
-		chatGui.breakApart();
-		chatGuiSmall.breakApart();
-		delete sel;
-
-		foreach(p; players) {
+		foreach(ref p; players) {
 			if (p is null)
 				continue;
-			delete p;
+			breakApartAndNull(p);
 		}	
 
 		if (ml !is null)
 			ml.message = null;
 
-		delete cam;
-		delete sl;
-		delete w;
+		breakApartAndNull(cam);
+		breakApartAndNull(sel);
+		breakApartAndNull(w);
 
 		super.close();
 
@@ -335,7 +340,8 @@ public:
 				saveCamHeading = camHeading,
 				saveCamPitch = camPitch;
 			} else {
-				c.sendPing();
+				sentCounter = 0;
+				// @todo c.sendPing();
 			}
 		}
 	}
@@ -347,7 +353,7 @@ public:
 		cam.resize(rt.width, rt.height);
 
 		auto pcam = cast(GfxProjCamera)cam.current;
-		if (pcam !is null && w.gfx.fog !is null) {
+		if (pcam !is null && w.gfx.fog !is null && bgScene !is null) {
 			bgScene.render(pcam, sl.gfx, rt.width, rt.height);
 			sysReference(&w.gfx.bg, bgScene.texture);
 		} else {
@@ -421,11 +427,6 @@ public:
 			glDisable(GL_COLOR_LOGIC_OP);
 			glLogicOp(GL_COPY);
 		}
-	}
-
-	void resize(uint w, uint h)
-	{
-		cam.resize(w, h);
 	}
 
 	void dropControl()
@@ -674,6 +675,14 @@ public:
 	}
 
 	/**
+	 * For options.
+	 */
+	void ppFlying(bool val)
+	{
+		pp.flying = val;
+	}
+
+	/**
 	 * Callback for the PlayerPhysics to get a block.
 	 */
 	ubyte ppGetBlock(int x, int y, int z)
@@ -681,8 +690,10 @@ public:
 		// Stop players from falling off the map.
 		if (x < 0 || y < 0 || z < 0)
 			return 1;
+
+		// Can go over the map.
 		auto ft = cast(FiniteTerrain)w.t;
-		if (x >= ft.xSize || y >= ft.ySize + 2 || z >= ft.zSize)
+		if (x >= ft.xSize || z >= ft.zSize)
 			return 1;
 
 		auto b = w.t[x, y, z];
@@ -792,7 +803,8 @@ public:
 			pp.run = keyDown;
 
 		} else if (sym == opts.keyFlightMode) {
-			// XXX Fix
+			if (keyDown)
+				opts.flying.toggle();
 
 		} else if (sym == opts.keyNoClip) {
 			pp.noClip = keyDown ^ opts.noClip();
@@ -1123,7 +1135,7 @@ public:
 
 		// Should not happen, but we arn't trusting the servers.
 		if (players[index] !is null)
-			delete players[index];
+			breakApartAndNull(players[index]);
 
 		double offset = 52.0 / 32.0;
 		auto pos = Point3d(x, y - offset, z);
@@ -1209,8 +1221,7 @@ public:
 		if (index == 255)
 			return;
 
-		delete players[index];
-		players[index] = null;
+		breakApartAndNull(players[index]);
 	}
 
 	void playerType(ubyte type)

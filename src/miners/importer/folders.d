@@ -29,6 +29,25 @@ string getMinecraftFolder()
 }
 
 /**
+ * Return the folder where the Classic minecraft.jar is located.
+ */
+string getMinecraftClassicFolder()
+{
+	// The minecraft config folder move around a bit.
+	version(linux) {
+		string mcFolder = tempFolder ~ "/minecraft.net/Minecraft";
+	} else version (darwin) {
+		string mcFolder = tempFolder ~ "/minecraft.net/Minecraft";
+	} else version (Windows) {
+		string mcFolder = tempFolder ~ "\\minecraft.net\\Minecraft";
+	} else {
+		static assert(false);
+	}
+
+	return mcFolder;
+}
+
+/**
  * Returns the save folder for Minecraft.
  */
 string getMinecraftSaveFolder(string dir = null)
@@ -36,7 +55,40 @@ string getMinecraftSaveFolder(string dir = null)
 	if (dir is null)
 		dir = getMinecraftFolder();
 
-	return format("%s/saves", dir);
+	return dir ~ "/saves";
+}
+
+/**
+ * Returns the bin folder for Minecraft.
+ */
+string getMinecraftBinFolder(string dir = null)
+{
+	if (dir is null)
+		dir = getMinecraftFolder();
+
+	return dir ~ "/bin";
+}
+
+/**
+ * Returns the bin folder for Minecraft.
+ */
+string getModernMinecraftJarFilePath(string dir = null)
+{
+	if (dir is null)
+		dir = getMinecraftBinFolder();
+
+	return dir ~ "/minecraft.jar";
+}
+
+/**
+ * Returns the bin folder for Minecraft.
+ */
+string getClassicMinecraftJarFilePath(string dir = null)
+{
+	if (dir is null)
+		dir = getMinecraftClassicFolder();
+
+	return dir ~ "/minecraft.jar";
 }
 
 /**

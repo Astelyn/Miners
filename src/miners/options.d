@@ -81,9 +81,13 @@ public:
 	Option!(bool) aa; /**< should anti-aliasing be used */
 	Option!(bool) fog; /**< should fog be drawn */
 	Option!(int) fov; /**< which fov should be used */
+	Option!(int) uiSize; /**< which size should the ui be */
 	Option!(bool) hideUi; /**< hide the user interface */
 	Option!(bool) noClip; /**< can the player move trough blocks */
+	Option!(bool) flying; /**< gravity doesn't effect the player */
 	Option!(bool) shadow; /**< should advanced shadowing be used */
+	Option!(int) speedRun; /**< classic running speed */
+	Option!(int) speedWalk; /**< classic walking speed */
 	Option!(bool) showDebug; /**< should debug info be shown */
 	Option!(bool) useCmdPrefix; /**< should we use the command prefix */
 	Option!(double) viewDistance; /**< the view distance */
@@ -91,14 +95,20 @@ public:
 	const string aaName = "mc.aa";
 	const string fogName = "mc.fog";
 	const string fovName = "mc.fov";
+	const string uiSizeName = "mc.uiSize";
 	const string shadowName = "mc.shadow";
+	const string speedRunName = "mc.speedRun";
+	const string speedWalkName = "mc.speedWalk";
 	const string useCmdPrefixName = "mc.useCmdPrefix";
 	const string viewDistanceName = "mc.viewDistance";
 
 	const bool aaDefault = true;
 	const bool fogDefault = true;
 	const int fovDefault = 45;
+	const int uiSizeDefault = 1;
 	const bool shadowDefault = true;
+	const int speedRunDefault = 1000;
+	const int speedWalkDefault = 43;
 	const bool useCmdPrefixDefault = true;
 	const double viewDistanceDefault = 256;
 
@@ -210,6 +220,7 @@ public:
 	GfxTexture whiteTexture;
 
 	Option!(GfxTexture) defaultSkin;
+	Option!(Picture) defaultClassicTerrain;
 
 	GfxSimpleSkeleton.VBO playerSkeleton;
 	alias PlayerModelData.bones playerBones;
@@ -219,6 +230,8 @@ public:
 
 	Option!(Picture) modernTerrainPic;
 	Option!(Picture) classicTerrainPic;
+	Option!(Picture) borrowedModernTerrainPic;
+	Option!(Picture) borrowedClassicTerrainPic;
 
 	Option!(GfxTexture) background;
 	Option!(GfxBitmapFont) classicFont;
@@ -239,6 +252,7 @@ public:
 	bool failsafe; /**< use as little as possible gfx features */
 	const string failsafeName = "mc.failsafe"; /**< config name */
 
+	bool rendererBackground; /**< use the background scene */
 	bool rendererBuildIndexed; /**< support array textures */
 	string rendererString; /**< readable string for current renderer */
 	TerrainBuildTypes rendererBuildType;
@@ -273,33 +287,46 @@ public:
 public:
 	~this()
 	{
-		sysReference(&playerSkeleton, null);
+
+	}
+
+	void breakApart()
+	{
+		lastClassicServer.destruct();
+		lastClassicServerHash.destruct();
+		lastMcUrl.destruct();
+
+		aa.destruct();
+		fog.destruct();
+		fov.destruct();
+		uiSize.destruct();
+		hideUi.destruct();
+		noClip.destruct();
+		flying.destruct();
+		shadow.destruct();
+		speedRun.destruct();
+		speedWalk.destruct();
+		showDebug.destruct();
+		useCmdPrefix.destruct();
+		viewDistance.destruct();
+
+		keyBindings.destruct();
+
 		sysReference(&blackTexture, null);
 		sysReference(&whiteTexture, null);
 
-		if (modernTextures !is null) {
-			modernTextures.breakApart();
-			modernTextures = null;
-		}
-
-		if (classicTextures !is null) {
-			classicTextures.breakApart();
-			classicTextures = null;
-		}
-
-		renderer.destruct();
-		shadow.destruct();
-		showDebug.destruct();
-		viewDistance.destruct();
-		useCmdPrefix.destruct();
-
 		defaultSkin.destruct();
+		defaultClassicTerrain.destruct();
+
+		sysReference(&playerSkeleton, null);
 
 		backgroundTiled.destruct();
 		backgroundDoubled.destruct();
 
 		modernTerrainPic.destruct();
 		classicTerrainPic.destruct();
+		borrowedModernTerrainPic.destruct();
+		borrowedClassicTerrainPic.destruct();
 
 		background.destruct();
 		classicFont.destruct();
@@ -307,6 +334,11 @@ public:
 		foreach (ref tex; classicSides) {
 			sysReference(&tex, null);
 		}
+
+		breakApartAndNull(modernTextures);
+		breakApartAndNull(classicTextures);
+
+		renderer.destruct();
 	}
 
 	void allocateResources()
@@ -316,8 +348,8 @@ public:
 		       whiteTexture is null);
 
 		playerSkeleton = GfxSimpleSkeleton.VBO(PlayerModelData.verts);
-		blackTexture = GfxColorTexture(Color4f.Black);
-		whiteTexture = GfxColorTexture(Color4f.White);
+		blackTexture = GfxColorTexture(SysPool(), Color4f.Black);
+		whiteTexture = GfxColorTexture(SysPool(), Color4f.White);
 	}
 
 	void setRenderer(TerrainBuildTypes bt, string s)

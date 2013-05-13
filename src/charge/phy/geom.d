@@ -1,17 +1,34 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for Geom (s).
+ */
 module charge.phy.geom;
 
 import charge.phy.ode;
 import charge.math.mesh;
 import charge.sys.logger;
-import charge.sys.resource;
+import charge.sys.resource : Pool, Resource, reference;
 
 
 class Geom
 {
 package:
 	dGeomID geom;
+
+public:
+	~this()
+	{
+		assert(geom is null);
+	}
+
+	void breakApart()
+	{
+		if (geom !is null) {
+			dGeomDestroy(geom);
+			geom = null;
+		}
+	}
 }
 
 class GeomCube : Geom
@@ -32,6 +49,11 @@ class GeomSphere : Geom
 	}
 }
 
+/**
+ * Backing data for @link charge.phy.geom.GeomMesh GeomMesh @endlink.
+ *
+ * @ingroup Resource
+ */
 class GeomMeshData : Resource
 {
 public:
@@ -43,11 +65,6 @@ private:
 	dTriMeshDataID mesh;
 
 public:
-	static GeomMeshData opCall(string filename)
-	{
-		return GeomMeshData(Pool(), filename);
-	}
-
 	static GeomMeshData opCall(Pool p, string filename)
 	{
 		auto r = p.resource(uri, filename);
@@ -57,19 +74,19 @@ public:
 			return d;
 		}
 
-		auto m = RigidMesh(filename);
+		auto m = RigidMesh(p, filename);
 		if (m is null) {
 			l.warn("failed to load %s", filename);
 			return null;
 		}
 		auto ret = new GeomMeshData(p, filename, m);
-		Resource.reference(&m, null);
+		reference(&m, null);
 		return ret;
 	}
 
 	~this()
 	{
-		Resource.reference(&rigidMesh, null);
+		reference(&rigidMesh, null);
 		dGeomTriMeshDataDestroy(mesh);
 	}
 
@@ -78,7 +95,7 @@ protected:
 	{
 		super(p, uri, filename);
 
-		Resource.reference(&rigidMesh, mesh);
+		reference(&rigidMesh, mesh);
 
 		this.mesh = dGeomTriMeshDataCreate();
 		dGeomTriMeshDataBuildSingle(
@@ -95,9 +112,9 @@ private:
 	dTriMeshDataID mesh_data;
 
 public:
-	this(string filename)
+	this(Pool p, string filename)
 	{
-		data = GeomMeshData(filename);
+		data = GeomMeshData(p, filename);
 
 		if (data is null)
 			throw new Exception("Model not found!");
@@ -108,7 +125,12 @@ public:
 
 	~this()
 	{
-		dGeomDestroy(geom);
-		Resource.reference(&data, null);
+		assert(data is null);
+	}
+
+	void breakApart()
+	{
+		reference(&data, null);
+		super.breakApart();
 	}
 }

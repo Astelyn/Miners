@@ -1,9 +1,13 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for BufferManager.
+ */
 module charge.sfx.buffermanager;
 
 import lib.sdl.sdl;
 
+import charge.sys.resource : Pool;
 import charge.sys.logger;
 import charge.sys.file;
 import charge.sfx.buffer;
@@ -53,7 +57,8 @@ private:
 		File file;
 		uint len;
 
-		file = FileManager(filename);
+		/// @todo don't use default pool.
+		file = Pool().load(filename);
 
 		if (file is null) {
 			l.warn("Failed to open file ", filename);

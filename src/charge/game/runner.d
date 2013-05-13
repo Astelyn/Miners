@@ -1,5 +1,8 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for Runner base class and Router interface.
+ */
 module charge.game.runner;
 
 import charge.gfx.target;
@@ -36,11 +39,6 @@ public:
 	{
 		this.type = type;
 	}
-
-	/**
-	 * Called to notify that the screen has changed resolution.
-	 */
-	abstract void resize(uint w, uint h);
 
 	/**
 	 * Step the game logic one step.

@@ -1,5 +1,8 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for RenderQueue and helpers.
+ */
 module charge.gfx.renderqueue;
 
 import charge.gfx.shader;
@@ -9,7 +12,6 @@ import charge.gfx.material;
 interface Renderable
 {
 	Material getMaterial();
-	void drawFixed();
 	void drawAttrib(Shader s);
 }
 

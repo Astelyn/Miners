@@ -1,17 +1,24 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for CoreSDL.
+ */
 module charge.platform.core.sdl;
 
 import std.file : exists;
+import std.stdio : writefln;
 import std.string : format, toString, toStringz;
+import std.c.stdlib : exit;
 
 import charge.core;
+import charge.math.ints;
 import charge.gfx.gfx;
 import charge.gfx.target;
+import charge.gfx.renderer;
 import charge.sys.logger;
 import charge.sys.resource;
-import charge.sys.properties;
 import charge.util.memory;
+import charge.util.properties;
 import charge.platform.homefolder;
 import charge.platform.core.common;
 
@@ -19,6 +26,7 @@ version(Windows) {
 	import charge.platform.windows;
 } else {
 	string getClipboardText() { return null; }
+	void panicMessage(string str) {}
 }
 
 import lib.loader;
@@ -49,8 +57,6 @@ extern(C) void chargeQuit()
 class CoreSDL : CommonCore
 {
 private:
-	mixin Logging;
-
 	CoreOptions opts;
 
 	string title;
@@ -60,6 +66,8 @@ private:
 	bool fullscreenAutoSize; //< Only used at start
 
 	coreFlag flags;
+
+	bool noVideo;
 
 	/* surface for window */
 	SDL_Surface *s;
@@ -101,7 +109,12 @@ public:
 
 		loadLibraries();
 
-		initGfx(p);
+		const gfxFlags = coreFlag.GFX | coreFlag.AUTO;
+
+		if (opts.flags & gfxFlags)
+			initGfx(p);
+		else
+			initNoVideo(p);
 
 		foreach(init; initFuncs)
 			init();
@@ -118,18 +131,47 @@ public:
 
 		closeSfx();
 		closePhy();
-		closeGfx();
+
+		if (!noVideo)
+			closeGfx();
+		else
+			closeNoVideo();
+	}
+
+	void panic(string msg)
+	{
+		l.fatal("Core Panic!\n%s", msg);
+		writefln("Core Panic!\n%s", msg);
+		.panicMessage(msg);
+		exit(-1);
 	}
 
 	string getClipboardText()
 	{
+		if (noVideo)
+			throw new Exception("Gfx not initialized!");
+
 		return .getClipboardText();
 	}
 
 	void screenShot()
 	{
+		if (noVideo)
+			throw new Exception("Gfx not initialized!");
+
 		string filename;
-		ubyte *pixels;
+
+		uint srcWidth = width;
+		uint srcHeight = height;
+		size_t srcPitch = 4 * srcWidth;
+		size_t srcSize = srcPitch * height;
+		ubyte* srcPixels;
+
+		uint dstWidth = width;
+		uint dstHeight = height;
+		size_t dstPitch;
+		size_t dstSize;
+		ubyte* dstPixels;
 
 		// Find the first free screenshot name
 		do {
@@ -138,35 +180,45 @@ public:
 
 		// Surface where we will store the fliped image and save from.
 		auto temp = SDL_CreateRGBSurface(
-			SDL_SWSURFACE, width, height, 24,
-			0x000000FF, 0x0000FF00, 0x00FF0000, 0);
-
+			SDL_SWSURFACE, dstWidth, dstHeight, 32,
+			0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000);
 		if (temp == null)
 			return;
 		scope(exit)
 			SDL_FreeSurface(temp);
 
-		pixels = cast(ubyte*)cMalloc(3 * width * height);
-		if (pixels == null)
+		// Calculate dervied info.
+		dstPitch = temp.pitch;
+		dstSize = temp.pitch * temp.h;
+		dstPixels = cast(ubyte*)temp.pixels;
+
+		// Alloc temporary storage.
+		srcPixels = cast(ubyte*)cMalloc(srcSize);
+		if (srcPixels == null)
 			return;
 		scope(exit)
-			cFree(pixels);
+			cFree(srcPixels);
 
 		// Read the image from GL
-		glReadPixels(0, 0, width, height,
-			     GL_RGB, GL_UNSIGNED_BYTE, pixels);
+		glPixelStorei(GL_PACK_ROW_LENGTH, cast(int)(srcPitch / 4));
+		glReadPixels(0, 0, srcWidth, srcHeight,
+		             GL_RGBA, GL_UNSIGNED_BYTE, srcPixels);
+		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 
 		// Flip image
-		for (int i = 0; i < height; i++) {
-			size_t len = width * 3;
-			auto dst = cast(ubyte*)temp.pixels + temp.pitch * i;
-			auto src = pixels + 3 * width * (height - i - 1);
+		auto len = imin(cast(int)srcPitch, cast(int)temp.pitch);
+		auto h = imin(cast(int)srcHeight, cast(int)dstHeight);
+		for (int i = 0; i < h; i++) {
+			auto dst = dstPixels + dstPitch * i;
+			auto src = srcPixels + srcPitch * (srcHeight - i - 1);
 			dst[0 .. len] = src[0 .. len];
 		}
 
+		// Log
+		l.info("Saving screenshot as \"%s\" (%sx%s)", filename, temp.w, temp.h);
+
 		// Save the image to disk
 		SDL_SaveBMP(temp, toStringz(filename));
-		l.info("Saving screenshot as \"%s\"", filename);
 	}
 
 	void resize(uint w, uint h)
@@ -179,8 +231,11 @@ public:
 		if (!resizeSupported)
 			return;
 
-		l.info("Resizing window (%s, %s) %s", w, h,
-			fullscreen ? "fullscren" : "windowed");
+		if (noVideo)
+			throw new Exception("Gfx not initialized!");
+
+		l.info("Resizing window (%sx%s) %s", w, h,
+		       fullscreen ? "fullscren" : "windowed");
 		this.fullscreen = fullscreen;
 		width = w; height = h;
 		SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
@@ -204,6 +259,9 @@ public:
 
 	void size(out uint w, out uint h, out bool fullscreen)
 	{
+		if (noVideo)
+			throw new Exception("Gfx not initialized!");
+
 		w = this.width;
 		h = this.height;
 		fullscreen = this.fullscreen;
@@ -238,6 +296,23 @@ private:
 	 *
 	 */
 
+
+	void initNoVideo(Properties p)
+	{
+		version (DynamicSDL)
+			loadSDL(&sdl.symbol);
+
+		noVideo = true;
+		SDL_Init(SDL_INIT_JOYSTICK);
+	}
+
+	void closeNoVideo()
+	{
+		if (!noVideo)
+			return;
+
+		SDL_Quit();
+	}
 
 	void initGfx(Properties p)
 	{
@@ -307,10 +382,20 @@ private:
 			l.info("No joysticks found");
 		for(int i; i < numSticks; i++)
 			l.info("   %s", .toString(SDL_JoystickName(i)));
+
+		// Check for minimum version.
+		if (!GL_VERSION_2_1)
+			panic(format("OpenGL 2.1 not supported, can not run %s", opts.title));
+
+		if (!Renderer.init())
+			panic(format("Missing graphics features, can not run %s", opts.title));
 	}
 
 	void closeGfx()
 	{
+		if (!gfxLoaded)
+			return;
+
 		SDL_Quit();
 		gfxLoaded = false;
 	}

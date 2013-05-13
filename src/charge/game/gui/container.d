@@ -1,5 +1,8 @@
 // Copyright © 2011, Jakob Bornecrantz.  All rights reserved.
 // See copyright notice in src/charge/charge.d (GPLv2 only).
+/**
+ * Source file for Container class.
+ */
 module charge.game.gui.container;
 
 import charge.math.ints;
@@ -7,6 +10,7 @@ import charge.math.color;
 import charge.util.vector;
 import charge.gfx.draw;
 import charge.gfx.texture;
+import charge.sys.resource : reference;
 import charge.game.gui.component;
 
 
@@ -184,6 +188,7 @@ public:
 
 protected:
 	TextureTarget tt;
+	Draw d;
 
 public:
 	this(Container c, int x, int y, uint w, uint h,
@@ -191,6 +196,7 @@ public:
 	{
 		super(c, x, y, w, h);
 		this.bg = bg;
+		this.d = new Draw();
 	}
 
 	~this()
@@ -202,7 +208,7 @@ public:
 	{
 		super.releaseResources();
 
-		tt.reference(&tt, null);
+		reference(&tt, null);
 	}
 
 	void repaint(int x, int y, uint w, uint h)
@@ -228,19 +234,17 @@ public:
 	void paintTexture()
 	{
 		if (tt is null || (tt.width != w || tt.height != h)) {
-			tt.reference(&tt, null);
-			tt = TextureTarget(null, w, h);
+			reference(&tt, null);
+			tt = TextureTarget(w, h);
 		}
 
-		auto d = new Draw();
+		// Field not argument.
 		d.target = tt;
 		d.start();
 
 		super.paint(d);
 
 		d.stop();
-
-		delete d;
 	}
 
 	void paint(Draw d)
@@ -328,12 +332,12 @@ public:
 		auto dH = h * 2;
 
 		if (tt is null || (tt.width != dW || tt.height != dH)) {
-			tt.reference(&tt, null);
-			tt = TextureTarget(null, dW, dH);
+			reference(&tt, null);
+			tt = TextureTarget(dW, dH);
 			tt.filter = Texture.Filter.LinearNone;
 		}
 
-		auto d = new Draw();
+		// Field not argument.
 		d.target = tt;
 		d.start();
 
@@ -342,8 +346,6 @@ public:
 		Container.paint(d);
 
 		d.stop();
-
-		delete d;
 	}
 
 	void paint(Draw d)
